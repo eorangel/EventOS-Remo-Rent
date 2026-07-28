@@ -1,0 +1,456 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RolUsuario {
+  ADMIN
+  COMERCIAL
+  OPERATIVO
+  COMPRAS
+  FINANZAS
+}
+
+enum EstadoEvento {
+  BORRADOR
+  COTIZACION
+  CONFIRMADO
+  EN_LOGISTICA
+  EN_EJECUCION
+  COMPLETADO
+  CANCELADO
+}
+
+enum TipoProveedor {
+  PROPIO
+  SUBARRENDO
+}
+
+enum EstadoVerificacionProveedor {
+  BORRADOR
+  EN_REVISION
+  VERIFICADO
+}
+
+enum OrigenCapturaProveedor {
+  INTERNO
+  TELEFONO
+  VISITA
+  WEB
+}
+
+enum UnidadMedidaProducto {
+  PIEZA
+  METRO
+  METRO2
+  PAQUETE
+  SERVICIO
+}
+
+enum EstadoCotizacion {
+  BORRADOR
+  ENVIADA
+  APROBADA
+  RECHAZADA
+}
+
+enum TipoActividad {
+  MONTAJE
+  EVENTO
+  DESMONTAJE
+  ENTREGA
+  RECOLECCION
+}
+
+enum EstadoLogistica {
+  PENDIENTE
+  PROGRAMADA
+  EN_RUTA
+  COMPLETADA
+}
+
+enum EstadoSubarrendo {
+  IDENTIFICADO
+  SOLICITADO
+  CONFIRMADO
+  RECIBIDO
+  DEVUELTO
+}
+
+enum TipoMovimientoFinanciero {
+  ANTICIPO
+  PAGO
+  REEMBOLSO
+  GASTO
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  CHEQUE
+  OTRO
+}
+
+enum EstadoMovimientoFinanciero {
+  PENDIENTE
+  CONFIRMADO
+  CANCELADO
+}
+
+enum TipoDocumento {
+  COTIZACION
+  CONTRATO
+  RECIBO
+  ACTA_ENTREGA
+  OTRO
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  rol          RolUsuario
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  eventosCreados Evento[] @relation("EventoCreador")
+}
+
+model Cliente {
+  id        String   @id @default(cuid())
+  nombre    String
+  empresa   String?
+  email     String?
+  telefono  String?
+  direccion String?
+  notas     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eventos Evento[]
+}
+
+model Evento {
+  id              String       @id @default(cuid())
+  titulo          String
+  descripcion     String?
+  fechaEvento     DateTime
+  fechaMontaje    DateTime?
+  fechaDesmontaje DateTime?
+  lugar           String?
+  estado          EstadoEvento @default(BORRADOR)
+  notas           String?
+  clienteId       String
+  creadoPorId     String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  cliente      Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  creadoPor    Usuario           @relation("EventoCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  cotizaciones Cotizacion[]
+  actividades  ActividadAgenda[]
+  logistica    Logistica?
+  subarrendos  Subarrendo[]
+  movimientos  MovimientoFinanciero[]
+  documentos   Documento[]
+
+  @@index([clienteId])
+  @@index([estado])
+  @@index([fechaEvento])
+}
+
+model Producto {
+  id            String   @id @default(cuid())
+  codigo        String   @unique
+  nombre        String
+  categoria     String?
+  descripcion   String?
+  cantidadTotal Int      @default(0)
+  costoUnitario Decimal  @default(0) @db.Decimal(12, 2)
+  precioRenta   Decimal  @default(0) @db.Decimal(12, 2)
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items CotizacionItem[]
+
+  @@index([categoria])
+  @@index([activo])
+}
+
+model Proveedor {
+  id                   String                      @id @default(cuid())
+  nombre               String
+  razonSocial          String?
+  rfc                  String?
+  contacto             String?
+  email                String?
+  telefono             String?
+  sitioWeb             String?
+  direccion            String?
+  ciudad               String?
+  entidadFederativa    String?
+  latitud              Decimal?                    @db.Decimal(10, 7)
+  longitud             Decimal?                    @db.Decimal(10, 7)
+  tipo                 TipoProveedor               @default(SUBARRENDO)
+  estadoVerificacion   EstadoVerificacionProveedor @default(BORRADOR)
+  origenCaptura        OrigenCapturaProveedor      @default(INTERNO)
+  eventosSimultaneosMax Int?
+  unidadesMaxEntrega   Int?
+  radioCoberturaKm     Int?
+  notas                String?
+  activo               Boolean                     @default(true)
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+
+  items       CotizacionItem[]
+  subarrendos Subarrendo[]
+  productos   ProductoProveedor[]
+  coberturas  CoberturaProveedor[]
+  servicios   ServicioProveedor[]
+
+  @@index([tipo])
+  @@index([activo])
+  @@index([entidadFederativa])
+  @@index([ciudad])
+  @@index([estadoVerificacion])
+}
+
+model ProductoProveedor {
+  id                 String               @id @default(cuid())
+  proveedorId        String
+  nombre             String
+  categoria          String?
+  descripcion        String?
+  cantidadDisponible Int                  @default(0)
+  precioReferencia   Decimal              @default(0) @db.Decimal(12, 2)
+  unidadMedida       UnidadMedidaProducto @default(PIEZA)
+  activo             Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  proveedor Proveedor               @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  fotos     FotoProductoProveedor[]
+
+  @@index([proveedorId])
+  @@index([categoria])
+  @@index([activo])
+}
+
+model FotoProductoProveedor {
+  id                  String  @id @default(cuid())
+  productoProveedorId String
+  url                 String
+  esPrincipal         Boolean @default(false)
+  orden               Int     @default(0)
+
+  producto ProductoProveedor @relation(fields: [productoProveedorId], references: [id], onDelete: Cascade)
+
+  @@index([productoProveedorId])
+}
+
+model CoberturaProveedor {
+  id          String  @id @default(cuid())
+  proveedorId String
+  entidad     String
+  ciudad      String?
+  notas       String?
+
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+
+  @@index([proveedorId])
+  @@index([entidad])
+}
+
+model ServicioProveedor {
+  id               String   @id @default(cuid())
+  proveedorId      String
+  nombre           String
+  descripcion      String?
+  precioReferencia Decimal? @db.Decimal(12, 2)
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+
+  @@index([proveedorId])
+}
+
+model Vehiculo {
+  id        String   @id @default(cuid())
+  nombre    String
+  placa     String   @unique
+  capacidad String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logisticas Logistica[]
+}
+
+model ActividadAgenda {
+  id          String        @id @default(cuid())
+  eventoId    String
+  tipo        TipoActividad
+  titulo      String
+  fechaInicio DateTime
+  fechaFin    DateTime?
+  lugar       String?
+  completada  Boolean       @default(false)
+  notas       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  evento Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  @@index([eventoId])
+  @@index([fechaInicio])
+}
+
+model Logistica {
+  id           String          @id @default(cuid())
+  eventoId     String          @unique
+  vehiculoId   String?
+  conductor    String?
+  equipo       String?
+  fechaSalida  DateTime?
+  fechaRegreso DateTime?
+  ruta         String?
+  estado       EstadoLogistica @default(PENDIENTE)
+  notas        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  evento    Evento                   @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  vehiculo  Vehiculo?                @relation(fields: [vehiculoId], references: [id], onDelete: SetNull)
+  checklist LogisticaChecklistItem[]
+
+  @@index([estado])
+}
+
+model LogisticaChecklistItem {
+  id          String  @id @default(cuid())
+  logisticaId String
+  descripcion String
+  completado  Boolean @default(false)
+  orden       Int     @default(0)
+
+  logistica Logistica @relation(fields: [logisticaId], references: [id], onDelete: Cascade)
+
+  @@index([logisticaId])
+}
+
+model Subarrendo {
+  id               String           @id @default(cuid())
+  eventoId         String
+  proveedorId      String
+  cotizacionItemId String?
+  descripcion      String
+  cantidad         Int              @default(1)
+  costo            Decimal          @default(0) @db.Decimal(12, 2)
+  estado           EstadoSubarrendo @default(IDENTIFICADO)
+  fechaEntrega     DateTime?
+  notas            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  evento    Evento    @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+
+  @@index([eventoId])
+  @@index([estado])
+}
+
+model Cotizacion {
+  id            String           @id @default(cuid())
+  folio         String           @unique
+  eventoId      String
+  estado        EstadoCotizacion @default(BORRADOR)
+  margenGlobal  Decimal          @default(30) @db.Decimal(5, 2)
+  subtotalCosto Decimal          @default(0) @db.Decimal(12, 2)
+  subtotalVenta Decimal          @default(0) @db.Decimal(12, 2)
+  total         Decimal          @default(0) @db.Decimal(12, 2)
+  utilidad      Decimal          @default(0) @db.Decimal(12, 2)
+  notas         String?
+  validoHasta   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  evento Evento           @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  items  CotizacionItem[]
+  documentos Documento[]
+
+  @@index([eventoId])
+  @@index([estado])
+}
+
+model CotizacionItem {
+  id               String  @id @default(cuid())
+  cotizacionId     String
+  productoId       String?
+  proveedorId      String?
+  descripcion      String
+  cantidad         Int     @default(1)
+  costoUnitario    Decimal @db.Decimal(12, 2)
+  margenPorcentaje Decimal @default(30) @db.Decimal(5, 2)
+  precioUnitario   Decimal @db.Decimal(12, 2)
+  subtotal         Decimal @db.Decimal(12, 2)
+  esSubarrendo     Boolean @default(false)
+
+  cotizacion Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  producto   Producto?  @relation(fields: [productoId], references: [id], onDelete: SetNull)
+  proveedor  Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+
+  @@index([cotizacionId])
+  @@index([productoId])
+}
+
+model MovimientoFinanciero {
+  id         String                     @id @default(cuid())
+  eventoId   String
+  tipo       TipoMovimientoFinanciero
+  concepto   String
+  monto      Decimal                    @db.Decimal(12, 2)
+  metodoPago MetodoPago                 @default(TRANSFERENCIA)
+  estado     EstadoMovimientoFinanciero @default(CONFIRMADO)
+  referencia String?
+  fecha      DateTime                   @default(now())
+  notas      String?
+  createdAt  DateTime                   @default(now())
+  updatedAt  DateTime                   @updatedAt
+
+  evento Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  @@index([eventoId])
+  @@index([tipo])
+  @@index([estado])
+  @@index([fecha])
+}
+
+model Documento {
+  id           String        @id @default(cuid())
+  eventoId     String
+  cotizacionId String?
+  tipo         TipoDocumento
+  titulo       String
+  folio        String?
+  contenido    String?
+  generadoEn   DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  evento     Evento      @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  cotizacion Cotizacion? @relation(fields: [cotizacionId], references: [id], onDelete: SetNull)
+
+  @@index([eventoId])
+  @@index([tipo])
+  @@index([cotizacionId])
+}
