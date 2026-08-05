@@ -1,4 +1,4 @@
-import { PrismaClient, RolUsuario, TipoProveedor } from '@prisma/client';
+import { PrismaClient, RolUsuario, TipoProveedor, EstadoOrdenCobro, EstadoEventoProveedor, TipoSeguimientoCliente, EstadoSeguimientoCliente, EstadoCotizacion } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import {
   calcPrecioVenta,
@@ -116,6 +116,9 @@ async function main() {
       direccion: 'Av. Insurgentes Sur 1234',
       ciudad: 'Ciudad de México',
       entidadFederativa: 'Ciudad de México',
+      latitud: 19.391,
+      longitud: -99.162,
+      alcaldia: 'Benito Juárez',
       estadoVerificacion: 'VERIFICADO',
       origenCaptura: 'VISITA',
       eventosSimultaneosMax: 5,
@@ -134,6 +137,9 @@ async function main() {
       direccion: 'Av. Insurgentes Sur 1234',
       ciudad: 'Ciudad de México',
       entidadFederativa: 'Ciudad de México',
+      latitud: 19.391,
+      longitud: -99.162,
+      alcaldia: 'Benito Juárez',
       tipo: TipoProveedor.SUBARRENDO,
       estadoVerificacion: 'VERIFICADO',
       origenCaptura: 'VISITA',
@@ -151,6 +157,9 @@ async function main() {
       razonSocial: 'Remo&Rent Operaciones',
       ciudad: 'Ciudad de México',
       entidadFederativa: 'Ciudad de México',
+      latitud: 19.4284,
+      longitud: -99.1276,
+      alcaldia: 'Cuauhtémoc',
       estadoVerificacion: 'VERIFICADO',
       origenCaptura: 'INTERNO',
       eventosSimultaneosMax: 10,
@@ -164,6 +173,9 @@ async function main() {
       contacto: 'Operaciones',
       ciudad: 'Ciudad de México',
       entidadFederativa: 'Ciudad de México',
+      latitud: 19.4284,
+      longitud: -99.1276,
+      alcaldia: 'Cuauhtémoc',
       tipo: TipoProveedor.PROPIO,
       estadoVerificacion: 'VERIFICADO',
       origenCaptura: 'INTERNO',
@@ -175,7 +187,10 @@ async function main() {
 
   await prisma.proveedor.upsert({
     where: { id: 'seed-prov-3' },
-    update: {},
+    update: {
+      latitud: 20.6597,
+      longitud: -103.3496,
+    },
     create: {
       id: 'seed-prov-3',
       nombre: 'Carpas y Eventos Guadalajara',
@@ -186,12 +201,237 @@ async function main() {
       ciudad: 'Guadalajara',
       entidadFederativa: 'Jalisco',
       direccion: 'Av. López Mateos 500',
+      latitud: 20.6597,
+      longitud: -103.3496,
       tipo: TipoProveedor.SUBARRENDO,
       estadoVerificacion: 'EN_REVISION',
       origenCaptura: 'TELEFONO',
       eventosSimultaneosMax: 3,
       unidadesMaxEntrega: 150,
       radioCoberturaKm: 120,
+    },
+  });
+
+  const proveedorUser = await prisma.usuario.upsert({
+    where: { email: 'proveedor@demo.mx' },
+    update: { proveedorId: 'seed-prov-1' },
+    create: {
+      email: 'proveedor@demo.mx',
+      passwordHash: await bcrypt.hash('proveedor123', 10),
+      nombre: 'Carlos Ruiz',
+      rol: RolUsuario.ADMIN_PROVEEDOR,
+      proveedorId: 'seed-prov-1',
+    },
+  });
+
+  const clientePortal1 = await prisma.clienteProveedor.upsert({
+    where: { id: 'seed-cp-1' },
+    update: {},
+    create: {
+      id: 'seed-cp-1',
+      proveedorId: 'seed-prov-1',
+      nombre: 'Laura Méndez',
+      empresa: 'Eventos LM',
+      email: 'laura@eventoslm.mx',
+      telefono: '5551112233',
+    },
+  });
+
+  const clientePortal2 = await prisma.clienteProveedor.upsert({
+    where: { id: 'seed-cp-2' },
+    update: {},
+    create: {
+      id: 'seed-cp-2',
+      proveedorId: 'seed-prov-1',
+      nombre: 'Roberto Sánchez',
+      empresa: 'RS Producciones',
+      email: 'roberto@rsprod.mx',
+      telefono: '5554445566',
+    },
+  });
+
+  await prisma.ordenCobro.upsert({
+    where: {
+      proveedorId_folio: {
+        proveedorId: 'seed-prov-1',
+        folio: 'COB-20260701-0001',
+      },
+    },
+    update: {
+      pagadoEn: new Date('2026-08-02T14:00:00'),
+    },
+    create: {
+      proveedorId: 'seed-prov-1',
+      clienteProveedorId: clientePortal1.id,
+      folio: 'COB-20260701-0001',
+      concepto: 'Renta sillas Tiffany — evento 15 jul',
+      monto: 12500,
+      estado: EstadoOrdenCobro.PAGADO,
+      metodoPago: 'TRANSFERENCIA',
+      referencia: 'SPEI-998877',
+      pagadoEn: new Date('2026-07-05T14:00:00'),
+    },
+  });
+
+  await prisma.ordenCobro.upsert({
+    where: {
+      proveedorId_folio: {
+        proveedorId: 'seed-prov-1',
+        folio: 'COB-20260720-0002',
+      },
+    },
+    update: {},
+    create: {
+      proveedorId: 'seed-prov-1',
+      clienteProveedorId: clientePortal2.id,
+      folio: 'COB-20260720-0002',
+      concepto: 'Mesas redondas + mantelería',
+      monto: 8900,
+      estado: EstadoOrdenCobro.PENDIENTE,
+      metodoPago: 'TRANSFERENCIA',
+      fechaVencimiento: new Date('2026-08-15T23:59:59'),
+    },
+  });
+
+  await prisma.configPasarelaProveedor.upsert({
+    where: { proveedorId: 'seed-prov-1' },
+    update: { activo: true },
+    create: {
+      proveedorId: 'seed-prov-1',
+      activo: true,
+    },
+  });
+
+  await prisma.perfilEmpresaProveedor.upsert({
+    where: { proveedorId: 'seed-prov-1' },
+    update: {
+      logoUrl: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=200',
+      regimenFiscal: '601 - General de Ley Personas Morales',
+      codigoPostal: '03100',
+      horario: {
+        dias: [
+          { dia: 'Lunes', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Martes', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Miércoles', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Jueves', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Viernes', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Sábado', abre: '10:00', cierra: '14:00', cerrado: false },
+          { dia: 'Domingo', abre: null, cierra: null, cerrado: true },
+        ],
+      },
+      redesSociales: {
+        facebook: 'https://facebook.com/mobiliarioexpress',
+        instagram: 'https://instagram.com/mobiliarioexpress',
+        whatsapp: '5559876543',
+        tiktok: '',
+        linkedin: 'https://linkedin.com/company/mobiliarioexpress',
+        sitioWeb: 'https://mobiliarioexpress.mx',
+      },
+      politicasRenta: 'Anticipo del 50% para reservar fecha. Entrega y recolección incluidas en CDMX y zona metropolitana. Daños por mal uso se cobran al valor de reposición.',
+      condicionesCancelacion: 'Cancelación con más de 15 días: reembolso del 80% del anticipo. Entre 7 y 15 días: 50%. Menos de 7 días: no reembolsable.',
+      ivaIncluido: false,
+      moneda: 'MXN',
+    },
+    create: {
+      proveedorId: 'seed-prov-1',
+      logoUrl: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=200',
+      regimenFiscal: '601 - General de Ley Personas Morales',
+      codigoPostal: '03100',
+      horario: {
+        dias: [
+          { dia: 'Lunes', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Martes', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Miércoles', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Jueves', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Viernes', abre: '09:00', cierra: '19:00', cerrado: false },
+          { dia: 'Sábado', abre: '10:00', cierra: '14:00', cerrado: false },
+          { dia: 'Domingo', abre: null, cierra: null, cerrado: true },
+        ],
+      },
+      redesSociales: {
+        facebook: 'https://facebook.com/mobiliarioexpress',
+        instagram: 'https://instagram.com/mobiliarioexpress',
+        whatsapp: '5559876543',
+        tiktok: '',
+        linkedin: 'https://linkedin.com/company/mobiliarioexpress',
+        sitioWeb: 'https://mobiliarioexpress.mx',
+      },
+      politicasRenta: 'Anticipo del 50% para reservar fecha. Entrega y recolección incluidas en CDMX y zona metropolitana. Daños por mal uso se cobran al valor de reposición.',
+      condicionesCancelacion: 'Cancelación con más de 15 días: reembolso del 80% del anticipo. Entre 7 y 15 días: 50%. Menos de 7 días: no reembolsable.',
+      ivaIncluido: false,
+      moneda: 'MXN',
+    },
+  });
+
+  await prisma.eventoClienteProveedor.upsert({
+    where: { id: 'seed-ev-prov-1' },
+    update: {
+      fechaEntrega: new Date('2026-09-20T08:00:00'),
+      fechaRecogida: new Date('2026-09-21T10:00:00'),
+    },
+    create: {
+      id: 'seed-ev-prov-1',
+      proveedorId: 'seed-prov-1',
+      clienteProveedorId: clientePortal1.id,
+      titulo: 'Boda Méndez — 180 invitados',
+      descripcion: 'Montaje sillas y mesas en jardín',
+      fechaEvento: new Date('2026-09-20T17:00:00'),
+      fechaFin: new Date('2026-09-21T01:00:00'),
+      fechaEntrega: new Date('2026-09-20T08:00:00'),
+      fechaRecogida: new Date('2026-09-21T10:00:00'),
+      lugar: 'Jardín Santa Fe, CDMX',
+      estado: EstadoEventoProveedor.CONFIRMADO,
+      montoEstimado: 18500,
+    },
+  });
+
+  await prisma.eventoClienteProveedor.upsert({
+    where: { id: 'seed-ev-prov-2' },
+    update: {
+      fechaEntrega: new Date('2026-08-10T07:00:00'),
+      fechaRecogida: new Date('2026-08-10T21:00:00'),
+    },
+    create: {
+      id: 'seed-ev-prov-2',
+      proveedorId: 'seed-prov-1',
+      clienteProveedorId: clientePortal2.id,
+      titulo: 'Congreso RS Producciones',
+      descripcion: 'Renta mobiliario corporativo',
+      fechaEvento: new Date('2026-08-10T09:00:00'),
+      fechaFin: new Date('2026-08-10T20:00:00'),
+      lugar: 'Centro de Convenciones WTC',
+      estado: EstadoEventoProveedor.COMPLETADO,
+      montoEstimado: 22000,
+    },
+  });
+
+  await prisma.seguimientoCliente.upsert({
+    where: { id: 'seed-seg-1' },
+    update: {},
+    create: {
+      id: 'seed-seg-1',
+      proveedorId: 'seed-prov-1',
+      clienteProveedorId: clientePortal1.id,
+      tipo: TipoSeguimientoCliente.LLAMADA,
+      titulo: 'Confirmar montaje boda',
+      descripcion: 'Revisar horario de entrega con el cliente',
+      fechaProgramada: new Date('2026-09-18T11:00:00'),
+      estado: EstadoSeguimientoCliente.PENDIENTE,
+    },
+  });
+
+  await prisma.seguimientoCliente.upsert({
+    where: { id: 'seed-seg-2' },
+    update: {},
+    create: {
+      id: 'seed-seg-2',
+      proveedorId: 'seed-prov-1',
+      clienteProveedorId: clientePortal2.id,
+      tipo: TipoSeguimientoCliente.WHATSAPP,
+      titulo: 'Enviar cotización mesas extra',
+      fechaProgramada: new Date('2026-08-05T16:30:00'),
+      estado: EstadoSeguimientoCliente.COMPLETADO,
+      completadoEn: new Date('2026-08-05T17:00:00'),
     },
   });
 
@@ -277,6 +517,54 @@ async function main() {
       { id: 'seed-srv-3', proveedorId: 'seed-prov-3', nombre: 'Montaje de carpa', precioReferencia: 1800 },
       { id: 'seed-srv-4', proveedorId: 'seed-prov-3', nombre: 'Iluminación', precioReferencia: 3500 },
     ],
+  });
+
+  await prisma.cotizacionProveedorItem.deleteMany({
+    where: { cotizacion: { id: 'seed-cot-prov-1' } },
+  });
+  await prisma.cotizacionProveedor.upsert({
+    where: { id: 'seed-cot-prov-1' },
+    update: {},
+    create: {
+      id: 'seed-cot-prov-1',
+      proveedorId: 'seed-prov-1',
+      clienteProveedorId: 'seed-cp-1',
+      folio: 'COT-20260920-0001',
+      titulo: 'Boda Méndez — mobiliario completo',
+      estado: EstadoCotizacion.ENVIADA,
+      fechaEvento: new Date('2026-09-20T17:00:00'),
+      lugarEntrega: 'Jardín Santa Fe, CDMX',
+      costoEnvio: 1200,
+      descuentoPorcentaje: 5,
+      descuentoMonto: 1040,
+      ivaPorcentaje: 16,
+      ivaIncluido: false,
+      subtotal: 19900,
+      montoIva: 3017.6,
+      total: 22077.6,
+      validoHasta: new Date('2026-08-20T23:59:59'),
+      notas: 'Incluye montaje y desmontaje el mismo día.',
+      items: {
+        create: [
+          {
+            id: 'seed-cot-item-1',
+            productoProveedorId: 'seed-cat-1',
+            descripcion: 'Silla Tiffany',
+            cantidad: 180,
+            precioUnitario: 55,
+            subtotal: 9900,
+          },
+          {
+            id: 'seed-cot-item-2',
+            productoProveedorId: 'seed-cat-2',
+            descripcion: 'Mesa redonda 10 personas',
+            cantidad: 18,
+            precioUnitario: 380,
+            subtotal: 6840,
+          },
+        ],
+      },
+    },
   });
 
   const margen = 30;
@@ -529,6 +817,7 @@ async function main() {
   console.log('Seed completado:', {
     admin: admin.email,
     comercial: comercial.email,
+    proveedorPortal: proveedorUser.email,
     productos: productos.length,
     cotizacion: cotizacion.folio,
     vehiculos: 2,
@@ -537,6 +826,128 @@ async function main() {
     documentos: 1,
     proveedoresCatalogo: 3,
     productosCatalogo: catalogoSeed.length,
+  });
+
+  // Planes SaaS
+  await prisma.plan.upsert({
+    where: { codigo: 'BASICO' },
+    update: {},
+    create: {
+      id: 'seed-plan-basico',
+      nombre: 'Básico',
+      codigo: 'BASICO',
+      precioMensual: 990,
+      descripcion: 'Portal proveedor, clientes y cotizaciones',
+    },
+  });
+  await prisma.plan.upsert({
+    where: { codigo: 'PRO' },
+    update: {},
+    create: {
+      id: 'seed-plan-pro',
+      nombre: 'Pro',
+      codigo: 'PRO',
+      precioMensual: 2490,
+      descripcion: 'Todo lo del Básico + reportes, pasarela de pago y agenda avanzada',
+    },
+  });
+  await prisma.plan.upsert({
+    where: { codigo: 'ENTERPRISE' },
+    update: {},
+    create: {
+      id: 'seed-plan-enterprise',
+      nombre: 'Enterprise',
+      codigo: 'ENTERPRISE',
+      precioMensual: 4990,
+      descripcion: 'Multi-sucursal, soporte prioritario y API',
+    },
+  });
+
+  // Suscripciones demo
+  await prisma.pagoSuscripcion.deleteMany({
+    where: { suscripcion: { proveedorId: { in: ['seed-prov-1', 'seed-prov-2', 'seed-prov-3'] } } },
+  });
+  await prisma.suscripcion.deleteMany({
+    where: { proveedorId: { in: ['seed-prov-1', 'seed-prov-2', 'seed-prov-3'] } },
+  });
+
+  const suscripcionProv1 = await prisma.suscripcion.create({
+    data: {
+      id: 'seed-susc-1',
+      proveedorId: 'seed-prov-1',
+      planId: 'seed-plan-pro',
+      estado: 'ACTIVA',
+      fechaAlta: new Date('2026-06-01T00:00:00'),
+      proximoCobro: new Date('2026-09-01T00:00:00'),
+      metodoPago: 'TARJETA',
+      referenciaPago: 'Visa ···· 4242',
+    },
+  });
+
+  await prisma.pagoSuscripcion.createMany({
+    data: [
+      {
+        id: 'seed-pago-susc-1',
+        suscripcionId: suscripcionProv1.id,
+        monto: 2490,
+        estado: 'PAGADO',
+        metodoPago: 'TARJETA',
+        referencia: 'MP-20260701-001',
+        periodoInicio: new Date('2026-07-01T00:00:00'),
+        periodoFin: new Date('2026-08-01T00:00:00'),
+        pagadoEn: new Date('2026-07-01T10:30:00'),
+      },
+      {
+        id: 'seed-pago-susc-2',
+        suscripcionId: suscripcionProv1.id,
+        monto: 2490,
+        estado: 'PAGADO',
+        metodoPago: 'TARJETA',
+        referencia: 'MP-20260801-001',
+        periodoInicio: new Date('2026-08-01T00:00:00'),
+        periodoFin: new Date('2026-09-01T00:00:00'),
+        pagadoEn: new Date('2026-08-01T09:15:00'),
+      },
+    ],
+  });
+
+  const suscripcionProv2 = await prisma.suscripcion.create({
+    data: {
+      id: 'seed-susc-2',
+      proveedorId: 'seed-prov-2',
+      planId: 'seed-plan-basico',
+      estado: 'PRUEBA',
+      fechaAlta: new Date('2026-07-15T00:00:00'),
+      proximoCobro: new Date('2026-08-15T00:00:00'),
+      metodoPago: null,
+    },
+  });
+
+  await prisma.pagoSuscripcion.create({
+    data: {
+      id: 'seed-pago-susc-3',
+      suscripcionId: suscripcionProv2.id,
+      monto: 0,
+      estado: 'PAGADO',
+      metodoPago: 'OTRO',
+      referencia: 'Periodo de prueba',
+      periodoInicio: new Date('2026-07-15T00:00:00'),
+      periodoFin: new Date('2026-08-15T00:00:00'),
+      pagadoEn: new Date('2026-07-15T00:00:00'),
+    },
+  });
+
+  await prisma.suscripcion.create({
+    data: {
+      id: 'seed-susc-3',
+      proveedorId: 'seed-prov-3',
+      planId: 'seed-plan-basico',
+      estado: 'SUSPENDIDA',
+      fechaAlta: new Date('2026-05-01T00:00:00'),
+      proximoCobro: new Date('2026-08-01T00:00:00'),
+      metodoPago: 'TRANSFERENCIA',
+      referenciaPago: 'SPEI · Banorte',
+    },
   });
 }
 

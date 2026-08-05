@@ -2,84 +2,193 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { EventosCrmResumenPanel } from '@/components/EventosCrmResumen';
 import { Badge, Button, EmptyState, PageHeader } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
 import {
   ESTADO_EVENTO_COLORS,
   ESTADO_EVENTO_LABELS,
+  ESTADO_EVENTO_PROVEEDOR_COLORS,
+  ESTADO_EVENTO_PROVEEDOR_LABELS,
   formatFecha,
+  formatMoney,
 } from '@/lib/labels';
-import type { Evento } from '@/lib/types';
+import type {
+  EstadoEvento,
+  EstadoEventoProveedor,
+  EventoCrm,
+  EventosCrmResumen,
+  OrigenEventoCrm,
+} from '@/lib/types';
+
+function estadoCrm(evento: EventoCrm) {
+  if (evento.origen === 'PLATAFORMA') {
+    const e = evento.estado as EstadoEvento;
+    return {
+      label: ESTADO_EVENTO_LABELS[e] ?? evento.estado,
+      color: ESTADO_EVENTO_COLORS[e] ?? 'bg-slate-100 text-slate-700',
+    };
+  }
+  const e = evento.estado as EstadoEventoProveedor;
+  return {
+    label: ESTADO_EVENTO_PROVEEDOR_LABELS[e] ?? evento.estado,
+    color: ESTADO_EVENTO_PROVEEDOR_COLORS[e] ?? 'bg-slate-100 text-slate-700',
+  };
+}
 
 export default function EventosPage() {
-  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [eventos, setEventos] = useState<EventoCrm[]>([]);
+  const [resumen, setResumen] = useState<EventosCrmResumen | null>(null);
   const [search, setSearch] = useState('');
+  const [origen, setOrigen] = useState<'' | OrigenEventoCrm>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set('search', search);
+    if (origen) params.set('origen', origen);
     const query = params.toString() ? `?${params.toString()}` : '';
-    apiFetch<Evento[]>(`/eventos${query}`)
-      .then(setEventos)
+
+    Promise.all([
+      apiFetch<EventoCrm[]>(`/eventos/crm${query}`),
+      apiFetch<EventosCrmResumen>('/eventos/crm/resumen'),
+    ])
+      .then(([items, res]) => {
+        setEventos(items);
+        setResumen(res);
+      })
       .finally(() => setLoading(false));
-  }, [search]);
+  }, [search, origen]);
 
   return (
     <>
       <PageHeader
-      title="Eventos"
-      description="Núcleo del sistema — ciclo de vida completo del evento"
-      action={
-      <Link href="/eventos/nuevo">
-      <Button>Nuevo evento</Button>
-      </Link>
-      }
+        title="Eventos"
+        description="Registro unificado de todos los eventos que pasan por el CRM — plataforma y portales de proveedores"
+        action={
+          <Link href="/eventos/nuevo">
+            <Button variant="secondary">Nuevo evento (plataforma)</Button>
+          </Link>
+        }
       />
-      
-      <div className="mb-6">
-      <input
-      type="search"
-      placeholder="Buscar por título, lugar o cliente..."
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-      className="w-full max-w-md"
-      />
+
+      {resumen && <EventosCrmResumenPanel data={resumen} />}
+
+      <div className="mt-8 space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                { id: '', label: 'Todos' },
+                { id: 'PLATAFORMA', label: 'Plataforma' },
+                { id: 'PROVEEDOR', label: 'Proveedores' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id || 'all'}
+                type="button"
+                onClick={() => setOrigen(tab.id)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  origen === tab.id
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'border border-slate-300 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <input
+            type="search"
+            placeholder="Buscar evento, cliente, proveedor o lugar..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-80"
+          />
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-slate-500">Cargando eventos...</p>
+        ) : eventos.length === 0 ? (
+          <EmptyState
+            title="Sin eventos"
+            description="Aún no hay eventos registrados en el CRM. Los eventos creados en la plataforma o en portales de proveedores aparecerán aquí."
+          />
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Evento</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Cliente</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Proveedor</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Fecha</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Origen</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-700">Estado</th>
+                    <th className="px-4 py-3 text-right font-semibold text-slate-700">Monto</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {eventos.map((evento) => {
+                    const { label, color } = estadoCrm(evento);
+                    return (
+                      <tr key={`${evento.origen}-${evento.id}`} className="hover:bg-slate-50/80">
+                        <td className="px-4 py-3">
+                          <Link
+                            href={evento.enlace}
+                            className="font-medium text-brand-700 hover:text-brand-900 hover:underline"
+                          >
+                            {evento.titulo}
+                          </Link>
+                          {evento.lugar && (
+                            <p className="mt-0.5 text-xs text-slate-500">{evento.lugar}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{evento.clienteNombre}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {evento.proveedorNombre ? (
+                            <Link
+                              href={`/proveedores/${evento.proveedorId}`}
+                              className="text-brand-700 hover:underline"
+                            >
+                              {evento.proveedorNombre}
+                            </Link>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                          {formatFecha(evento.fechaEvento)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={
+                              evento.origen === 'PLATAFORMA'
+                                ? 'bg-brand-50 text-brand-800'
+                                : 'bg-violet-50 text-violet-800'
+                            }
+                          >
+                            {evento.origen === 'PLATAFORMA' ? 'Plataforma' : 'Proveedor'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge className={color}>{label}</Badge>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right text-slate-700">
+                          {evento.montoEstimado != null ? formatMoney(evento.montoEstimado) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
-      
-      {loading ? (
-      <p className="text-sm text-slate-500">Cargando eventos...</p>
-      ) : eventos.length === 0 ? (
-      <EmptyState
-      title="Sin eventos"
-      description="Crea tu primer evento para iniciar el flujo operativo."
-      />
-      ) : (
-      <div className="grid gap-4">
-      {eventos.map((evento) => (
-      <Link
-      key={evento.id}
-      href={`/eventos/${evento.id}`}
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-300 hover:shadow-md"
-      >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-      <h2 className="text-lg font-semibold text-slate-900">{evento.titulo}</h2>
-      <p className="mt-1 text-sm text-slate-600">
-      {evento.cliente?.nombre} · {formatFecha(evento.fechaEvento)}
-      </p>
-      {evento.lugar && (
-      <p className="mt-1 text-sm text-slate-500">{evento.lugar}</p>
-      )}
-      </div>
-      <Badge className={ESTADO_EVENTO_COLORS[evento.estado]}>
-      {ESTADO_EVENTO_LABELS[evento.estado]}
-      </Badge>
-      </div>
-      </Link>
-      ))}
-      </div>
-      )}
     </>
   );
 }

@@ -3,7 +3,9 @@ export type RolUsuario =
   | 'COMERCIAL'
   | 'OPERATIVO'
   | 'COMPRAS'
-  | 'FINANZAS';
+  | 'FINANZAS'
+  | 'ADMIN_PROVEEDOR'
+  | 'OPERADOR_PROVEEDOR';
 
 export type EstadoEvento =
   | 'BORRADOR'
@@ -19,6 +21,384 @@ export type Usuario = {
   email: string;
   nombre: string;
   rol: RolUsuario;
+  proveedorId?: string | null;
+  proveedorNombre?: string | null;
+};
+
+export type EstadoOrdenCobro =
+  | 'BORRADOR'
+  | 'PENDIENTE'
+  | 'PAGADO'
+  | 'VENCIDO'
+  | 'CANCELADO';
+
+export type ClienteProveedor = {
+  id: string;
+  proveedorId: string;
+  nombre: string;
+  empresa?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  notas?: string | null;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    eventos: number;
+    seguimientos: number;
+    cobros: number;
+    cotizaciones?: number;
+  };
+};
+
+export type EstadoEventoProveedor =
+  | 'COTIZACION'
+  | 'CONFIRMADO'
+  | 'EN_EJECUCION'
+  | 'COMPLETADO'
+  | 'CANCELADO';
+
+export type TipoSeguimientoCliente =
+  | 'LLAMADA'
+  | 'REUNION'
+  | 'WHATSAPP'
+  | 'CORREO'
+  | 'VISITA'
+  | 'NOTA'
+  | 'RECORDATORIO';
+
+export type EstadoSeguimientoCliente = 'PENDIENTE' | 'COMPLETADO' | 'CANCELADO';
+
+export type EventoClienteProveedor = {
+  id: string;
+  proveedorId: string;
+  clienteProveedorId: string;
+  titulo: string;
+  descripcion?: string | null;
+  fechaEvento: string;
+  fechaFin?: string | null;
+  fechaEntrega?: string | null;
+  fechaRecogida?: string | null;
+  lugar?: string | null;
+  estado: EstadoEventoProveedor;
+  montoEstimado?: number | null;
+  notas?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  clienteProveedor?: ClienteProveedor;
+};
+
+export type SeguimientoCliente = {
+  id: string;
+  proveedorId: string;
+  clienteProveedorId: string;
+  tipo: TipoSeguimientoCliente;
+  titulo: string;
+  descripcion?: string | null;
+  fechaProgramada: string;
+  completadoEn?: string | null;
+  estado: EstadoSeguimientoCliente;
+  createdAt: string;
+  updatedAt: string;
+  clienteProveedor?: ClienteProveedor;
+};
+
+export type CalendarioItemTipo =
+  | 'EVENTO'
+  | 'ENTREGA'
+  | 'RECOGER'
+  | 'SEGUIMIENTO'
+  | 'COBRO'
+  | 'PAGO_PENDIENTE';
+
+export type CalendarioItem = {
+  id: string;
+  tipo: CalendarioItemTipo;
+  titulo: string;
+  fecha: string;
+  clienteId: string;
+  clienteNombre: string;
+  estado: string;
+  lugar?: string | null;
+  subtipo?: string;
+  monto?: number;
+  enlace?: string;
+  vencido?: boolean;
+};
+
+export type CalendarioPortal = {
+  desde: string;
+  hasta: string;
+  items: CalendarioItem[];
+};
+
+export type AgendaItem = Omit<CalendarioItem, 'tipo'>;
+
+export type AgendaSeccion = {
+  entregas: AgendaItem[];
+  recogidas: AgendaItem[];
+  eventos: AgendaItem[];
+  cobros: AgendaItem[];
+  seguimientos: AgendaItem[];
+  pagosPendientes: AgendaItem[];
+};
+
+export type AgendaPortal = {
+  fecha: string;
+  esHoy: boolean;
+  resumen: {
+    entregas: number;
+    recogidas: number;
+    eventos: number;
+    cobros: number;
+    seguimientos: number;
+    pagosPendientes: number;
+  };
+  secciones: AgendaSeccion;
+};
+
+export type HistorialTimelineItem = {
+  tipo: 'EVENTO' | 'SEGUIMIENTO' | 'COBRO' | 'COTIZACION';
+  id: string;
+  fecha: string;
+  titulo: string;
+  subtitulo?: string;
+  estado: string;
+  meta?: Record<string, unknown>;
+};
+
+export type ClienteHistorial = {
+  eventos: EventoClienteProveedor[];
+  seguimientos: SeguimientoCliente[];
+  cobros: OrdenCobro[];
+  cotizaciones?: CotizacionProveedor[];
+  timeline: HistorialTimelineItem[];
+};
+
+export type CotizacionProveedorItem = {
+  id?: string;
+  productoProveedorId?: string | null;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+  productoProveedor?: { id: string; nombre: string; categoria?: string | null } | null;
+};
+
+export type CotizacionProveedor = {
+  id: string;
+  proveedorId: string;
+  clienteProveedorId: string;
+  folio: string;
+  titulo?: string | null;
+  estado: EstadoCotizacion;
+  fechaEvento?: string | null;
+  lugarEntrega?: string | null;
+  costoEnvio: number;
+  descuentoPorcentaje: number;
+  descuentoMonto: number;
+  ivaPorcentaje: number;
+  ivaIncluido: boolean;
+  subtotal: number;
+  montoIva: number;
+  total: number;
+  notas?: string | null;
+  validoHasta?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  clienteProveedor?: ClienteProveedor;
+  items?: CotizacionProveedorItem[];
+};
+
+export type CotizacionPdfResponse = {
+  folio: string;
+  titulo: string;
+  html: string;
+};
+
+export type HorarioDia = {
+  dia: string;
+  abre?: string;
+  cierra?: string;
+  cerrado?: boolean;
+};
+
+export type RedesSocialesEmpresa = {
+  facebook?: string;
+  instagram?: string;
+  whatsapp?: string;
+  tiktok?: string;
+  linkedin?: string;
+  sitioWeb?: string;
+};
+
+export type PerfilEmpresaData = {
+  logoUrl: string | null;
+  regimenFiscal: string | null;
+  codigoPostal: string | null;
+  horario: { dias: HorarioDia[] };
+  redesSociales: RedesSocialesEmpresa;
+  politicasRenta: string | null;
+  condicionesCancelacion: string | null;
+  ivaIncluido: boolean;
+  moneda: string;
+  updatedAt: string | null;
+};
+
+export type PerfilEmpresaResponse = {
+  proveedor: {
+    id: string;
+    nombre: string;
+    razonSocial?: string | null;
+    rfc?: string | null;
+    email?: string | null;
+    telefono?: string | null;
+    contacto?: string | null;
+    direccion?: string | null;
+    ciudad?: string | null;
+    entidadFederativa?: string | null;
+    sitioWeb?: string | null;
+  };
+  perfil: PerfilEmpresaData;
+  completitudPerfilEmpresa: number;
+};
+
+export type OrdenCobro = {
+  id: string;
+  proveedorId: string;
+  clienteProveedorId: string;
+  folio: string;
+  concepto: string;
+  monto: number;
+  estado: EstadoOrdenCobro;
+  metodoPago: MetodoPago;
+  referencia?: string | null;
+  fechaVencimiento?: string | null;
+  pagadoEn?: string | null;
+  notas?: string | null;
+  tokenPago?: string;
+  linkPago?: string | null;
+  mpPreferenceId?: string | null;
+  mpPaymentId?: string | null;
+  linkPagoGeneradoEn?: string | null;
+  linkPublico?: string;
+  createdAt: string;
+  updatedAt: string;
+  clienteProveedor?: ClienteProveedor;
+};
+
+export type ConfigPasarelaProveedor = {
+  pasarela: 'MERCADO_PAGO';
+  activo: boolean;
+  tokenConfigured: boolean;
+  usaTokenPlataforma: boolean;
+  publicKey: string | null;
+  webhookUrl: string;
+};
+
+export type OrdenPagoPublica = {
+  folio: string;
+  concepto: string;
+  monto: number;
+  estado: EstadoOrdenCobro;
+  proveedorNombre: string;
+  clienteNombre: string;
+  linkPago: string | null;
+  tokenPago: string;
+  pagadoEn?: string | null;
+};
+
+export type PortalDashboardFinanciero = {
+  mes: string;
+  mesLabel: string;
+  ingresosMes: number;
+  ingresosMesAnterior: number;
+  variacionIngresos: number | null;
+  saldoPendiente: number;
+  eventosMes: number;
+  eventosActivos: number;
+  clientesActivos: number;
+  cobrosPagadosMes: number;
+  cobrosPendientes: number;
+  cobrosCreadosMes: number;
+  tasaCobranza: number;
+  ingresosSemanales: { semana: string; monto: number }[];
+};
+
+export type PortalDashboard = {
+  proveedor: {
+    id: string;
+    nombre: string;
+    estadoVerificacion: EstadoVerificacionProveedor;
+    completitudPerfil: number;
+  };
+  resumen: {
+    clientesActivos: number;
+    totalClientes: number;
+    productosCatalogo: number;
+    cobrosPendientes: number;
+    cobrosPagados: number;
+  };
+  financiero?: PortalDashboardFinanciero;
+  cobrosRecientes: OrdenCobro[];
+};
+
+export type PortalReportes = {
+  generadoEn: string;
+  resumen: {
+    totalVentas: number;
+    totalEventos: number;
+    productosRentados: number;
+    clientesConActividad: number;
+  };
+  topClientes: {
+    clienteId: string;
+    nombre: string;
+    totalCobrado: number;
+    cobrosPagados: number;
+    eventos: number;
+  }[];
+  productosMasRentados: {
+    productoId: string | null;
+    nombre: string;
+    cantidadRentada: number;
+    ingresosEstimados: number;
+  }[];
+  ventasPorMes: {
+    mes: string;
+    mesLabel: string;
+    monto: number;
+    cobros: number;
+  }[];
+  eventos: {
+    resumen: {
+      total: number;
+      confirmados: number;
+      enEjecucion: number;
+      completados: number;
+      proximos: number;
+    };
+    porMes: { mes: string; mesLabel: string; cantidad: number }[];
+    recientes: {
+      id: string;
+      titulo: string;
+      fecha: string;
+      estado: EstadoEventoProveedor;
+      clienteId: string;
+      clienteNombre: string;
+      lugar?: string | null;
+      montoEstimado?: number | null;
+    }[];
+  };
+};
+
+export type UsuarioProveedor = {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: RolUsuario;
+  activo: boolean;
+  createdAt: string;
 };
 
 export type Cliente = {
@@ -53,6 +433,7 @@ export type Proveedor = {
   direccion?: string | null;
   ciudad?: string | null;
   entidadFederativa?: string | null;
+  alcaldia?: string | null;
   latitud?: number | null;
   longitud?: number | null;
   tipo: TipoProveedor;
@@ -94,6 +475,12 @@ export type ProductoProveedor = {
   proveedor?: Pick<Proveedor, 'id' | 'nombre' | 'ciudad' | 'entidadFederativa'>;
 };
 
+/** Respuesta de /portal/productos/disponibilidad — cantidadDisponible es la disponible en fecha */
+export type ProductoProveedorInventario = ProductoProveedor & {
+  cantidadTotal: number;
+  cantidadReservada: number;
+};
+
 export type CoberturaProveedor = {
   id: string;
   proveedorId: string;
@@ -118,6 +505,29 @@ export type ProveedorExpediente = Proveedor & {
   completitudPerfil: number;
 };
 
+export type FilaImportacionProducto = {
+  fila: number;
+  nombre: string;
+  categoria?: string;
+  cantidadDisponible: number;
+  precioReferencia: number;
+  unidadMedida: UnidadMedidaProducto;
+  descripcion?: string;
+  fotoUrl?: string;
+  errores: string[];
+  valido: boolean;
+};
+
+export type ResultadoImportacionProductos = {
+  vistaPrevia: boolean;
+  totalFilas: number;
+  validas: number;
+  invalidas: number;
+  creados?: number;
+  actualizados?: number;
+  filas: FilaImportacionProducto[];
+};
+
 export type MetricasCapturaProveedores = {
   totalProveedores: number;
   verificados: number;
@@ -126,8 +536,84 @@ export type MetricasCapturaProveedores = {
   zonasCobertura: number;
   serviciosRegistrados: number;
   completitudPromedio: number;
+  proveedoresConUsuario: number;
+  clientesPortal: number;
+  cobrosPortal: number;
+  cobrosPagadosPortal: number;
+  adopcionPortal: number;
   porEntidad: { entidad: string; cantidad: number }[];
   topCategorias: { categoria: string; cantidad: number }[];
+};
+
+export type ResumenOperacionProveedores = {
+  resumen: {
+    totalProveedores: number;
+    activos: number;
+    verificados: number;
+    unidadesInventario: number;
+    productosCatalogados: number;
+    categoriasUnicas: number;
+    entidadesConPresencia: number;
+    alcaldiasConPresencia: number;
+    eventosOperados: number;
+    cotizacionesEmitidas: number;
+    cobrosGenerados: number;
+    cobrosPagados: number;
+    montoCobrado: number;
+  };
+  porEntidad: {
+    entidad: string;
+    proveedores: number;
+    unidades: number;
+    productos: number;
+  }[];
+  porAlcaldia: {
+    alcaldia: string;
+    proveedores: number;
+    unidades: number;
+    productos: number;
+  }[];
+  inventarioPorCategoria: {
+    categoria: string;
+    unidades: number;
+    productos: number;
+    proveedores: number;
+  }[];
+  ubicaciones: {
+    id: string;
+    nombre: string;
+    lat: number;
+    lng: number;
+    ciudad: string | null;
+    entidad: string | null;
+    alcaldia: string | null;
+    productos: number;
+    unidades: number;
+    eventos: number;
+    estadoVerificacion: string;
+    activo: boolean;
+    radioCoberturaKm: number | null;
+    precision: 'exacta' | 'estimada';
+  }[];
+  operacionPorProveedor: {
+    id: string;
+    nombre: string;
+    ciudad: string | null;
+    entidad: string | null;
+    alcaldia: string | null;
+    activo: boolean;
+    estadoVerificacion: string;
+    tipo: TipoProveedor;
+    productos: number;
+    unidades: number;
+    clientes: number;
+    eventos: number;
+    cotizaciones: number;
+    cobros: number;
+    cobrosPagados: number;
+    montoCobrado: number;
+    radioCoberturaKm: number | null;
+  }[];
 };
 
 export type EstadoCotizacion = 'BORRADOR' | 'ENVIADA' | 'APROBADA' | 'RECHAZADA';
@@ -274,34 +760,184 @@ export type Evento = {
   cotizaciones?: Cotizacion[];
 };
 
-export type DashboardResumen = {
-  kpis: {
-    totalClientes: number;
-    totalEventos: number;
-    eventosActivos: number;
-    eventosMes: number;
-    ingresosMes: number;
-    cobranzaPendiente: number;
-    utilidadEstimada: number;
-    ocupacionInventario: number;
-  };
-  eventosPorEstado: { estado: EstadoEvento; cantidad: number }[];
-  proximosEventos: Evento[];
-  rentabilidadEventos: {
-    eventoId: string;
-    titulo: string;
-    cotizado: number;
-    pagado: number;
-    utilidadCotizada: number;
-  }[];
-  ocupacionPorProducto: {
-    productoId: string;
+export type OrigenEventoCrm = 'PLATAFORMA' | 'PROVEEDOR';
+
+export type EventoCrm = {
+  id: string;
+  origen: OrigenEventoCrm;
+  titulo: string;
+  fechaEvento: string;
+  fechaFin?: string | null;
+  lugar?: string | null;
+  estado: string;
+  clienteId: string;
+  clienteNombre: string;
+  proveedorId?: string | null;
+  proveedorNombre?: string | null;
+  montoEstimado?: number | null;
+  creadoPor?: string | null;
+  creadoEn: string;
+  enlace: string;
+};
+
+export type EventosCrmResumen = {
+  total: number;
+  plataforma: number;
+  proveedor: number;
+  completados: number;
+  proximos: number;
+  registradosMes: number;
+  porMes: { mes: string; mesLabel: string; plataforma: number; proveedor: number }[];
+};
+
+export type EventoCrmProveedorDetalle = {
+  id: string;
+  origen: 'PROVEEDOR';
+  titulo: string;
+  descripcion?: string | null;
+  fechaEvento: string;
+  fechaFin?: string | null;
+  fechaEntrega?: string | null;
+  fechaRecogida?: string | null;
+  lugar?: string | null;
+  estado: EstadoEventoProveedor;
+  montoEstimado?: number | null;
+  notas?: string | null;
+  creadoEn: string;
+  proveedor: {
+    id: string;
     nombre: string;
-    reservado: number;
-    total: number;
-    porcentaje: number;
-  }[];
-  cotizacionesAprobadas: number;
+    ciudad?: string | null;
+    entidadFederativa?: string | null;
+  };
+  cliente: {
+    id: string;
+    nombre: string;
+    email?: string | null;
+    telefono?: string | null;
+    empresa?: string | null;
+  };
+};
+
+export type EstadoSuscripcion =
+  | 'PRUEBA'
+  | 'ACTIVA'
+  | 'SUSPENDIDA'
+  | 'CANCELADA'
+  | 'VENCIDA';
+
+export type EstadoPagoSuscripcion = 'PENDIENTE' | 'PAGADO' | 'FALLIDO' | 'REEMBOLSADO';
+
+export type PlanSuscripcion = {
+  id: string;
+  nombre: string;
+  codigo: string;
+  precioMensual: number;
+  moneda: string;
+  descripcion?: string | null;
+};
+
+export type PagoSuscripcion = {
+  id: string;
+  monto: number;
+  moneda: string;
+  estado: EstadoPagoSuscripcion;
+  metodoPago: MetodoPago;
+  referencia?: string | null;
+  periodoInicio: string;
+  periodoFin: string;
+  pagadoEn: string;
+};
+
+export type SuscripcionListItem = {
+  id: string;
+  empresa: string;
+  proveedorId: string;
+  plan: string;
+  planId: string;
+  precioMensual: number;
+  moneda: string;
+  estado: EstadoSuscripcion;
+  fechaAlta: string;
+  proximoCobro?: string | null;
+  metodoPago?: MetodoPago | null;
+  ultimoPago?: PagoSuscripcion | null;
+  totalPagos: number;
+};
+
+export type SuscripcionDetalle = {
+  id: string;
+  empresa: string;
+  empresaRazonSocial?: string | null;
+  proveedorId: string;
+  proveedorActivo: boolean;
+  plan: string;
+  planId: string;
+  planCodigo: string;
+  precioMensual: number;
+  moneda: string;
+  estado: EstadoSuscripcion;
+  fechaAlta: string;
+  proximoCobro?: string | null;
+  metodoPago?: MetodoPago | null;
+  referenciaPago?: string | null;
+  canceladaEn?: string | null;
+  pagos: PagoSuscripcion[];
+};
+
+export type SuscripcionesResumen = {
+  total: number;
+  activas: number;
+  prueba: number;
+  suspendidas: number;
+  canceladas: number;
+  mrr: number;
+  planes: PlanSuscripcion[];
+};
+
+export type DashboardResumen = {
+  generadoEn: string;
+  metricas: {
+    empresasRegistradas: number;
+    empresasActivas: number;
+    empresasVerificadas: number;
+    usuariosActivos: number;
+    usuariosPlataforma: number;
+    usuariosProveedor: number;
+    eventosCreados: number;
+    eventosPlataforma: number;
+    eventosProveedor: number;
+    cobrosGenerados: number;
+    montoCobrosGenerados: number;
+    cobrosPagados: number;
+    montoCobrosPagados: number;
+    usoSistema: number;
+    mrr: number;
+    churn: number;
+    conversionPruebaPago: number;
+    tasaCobranza: number;
+  };
+  tendencias: {
+    porMes: {
+      mes: string;
+      mesLabel: string;
+      empresasNuevas: number;
+      cobrosGenerados: number;
+      cobrosPagados: number;
+      montoPagado: number;
+      usoSistema: number;
+    }[];
+  };
+  recientes: {
+    empresas: {
+      id: string;
+      nombre: string;
+      ciudad: string | null;
+      estadoVerificacion: string;
+      activo: boolean;
+      createdAt: string;
+    }[];
+  };
 };
 
 export type TipoMovimientoFinanciero = 'ANTICIPO' | 'PAGO' | 'REEMBOLSO' | 'GASTO';

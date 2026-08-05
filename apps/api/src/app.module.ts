@@ -14,6 +14,12 @@ import { LogisticaModule } from './logistica/logistica.module';
 import { SubarrendosModule } from './subarrendos/subarrendos.module';
 import { FinanzasModule } from './finanzas/finanzas.module';
 import { DocumentosModule } from './documentos/documentos.module';
+import { PortalModule } from './portal/portal.module';
+import { PasarelaModule } from './pasarela/pasarela.module';
+import { PagosModule } from './pagos/pagos.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { SuscripcionesModule } from './suscripciones/suscripciones.module';
+import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
@@ -25,6 +31,10 @@ import { DocumentosModule } from './documentos/documentos.module';
     DashboardModule,
     ProductosModule,
     ProveedoresModule,
+    PortalModule,
+    PasarelaModule,
+    PagosModule,
+    WebhooksModule,
     CotizacionesModule,
     AgendaModule,
     VehiculosModule,
@@ -32,6 +42,8 @@ import { DocumentosModule } from './documentos/documentos.module';
     SubarrendosModule,
     FinanzasModule,
     DocumentosModule,
+    SuscripcionesModule,
   ],
+  providers: [RolesGuard],
 })
 export class AppModule {}

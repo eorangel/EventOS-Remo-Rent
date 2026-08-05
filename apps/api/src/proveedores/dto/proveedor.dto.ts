@@ -58,6 +58,10 @@ export class CreateProveedorDto {
   entidadFederativa?: string;
 
   @IsOptional()
+  @IsString()
+  alcaldia?: string;
+
+  @IsOptional()
   @IsNumber()
   latitud?: number;
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, setStoredUser, setToken } from '@/lib/api';
+import { getLoginRedirect } from '@/lib/auth-helpers';
 import type { Usuario } from '@/lib/types';
 import { Button } from '@/components/ui';
 
@@ -26,7 +27,7 @@ export default function LoginPage() {
 
       setToken(data.accessToken);
       setStoredUser(data.user);
-      router.push('/dashboard');
+      router.push(getLoginRedirect(data.user));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión');
     } finally {
@@ -79,7 +80,8 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Demo: admin@remorent.mx / admin123
+          Demo plataforma: admin@remorent.mx / admin123<br />
+          Demo proveedor: proveedor@demo.mx / proveedor123
         </p>
       </div>
     </div>

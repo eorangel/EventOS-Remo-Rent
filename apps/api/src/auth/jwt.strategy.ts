@@ -7,6 +7,7 @@ export type JwtPayload = {
   sub: string;
   email: string;
   rol: string;
+  proveedorId?: string | null;
 };
 
 @Injectable()

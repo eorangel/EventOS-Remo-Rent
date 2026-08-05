@@ -3,8 +3,15 @@ import type {
   EstadoEvento,
   EstadoLogistica,
   EstadoMovimientoFinanciero,
+  EstadoOrdenCobro,
+  EstadoSeguimientoCliente,
+  EstadoEventoProveedor,
+  TipoSeguimientoCliente,
   EstadoSubarrendo,
   MetodoPago,
+  EstadoSuscripcion,
+  EstadoPagoSuscripcion,
+  RolUsuario,
   TipoActividad,
   TipoDocumento,
   TipoMovimientoFinanciero,
@@ -34,12 +41,98 @@ export const ESTADO_EVENTO_COLORS: Record<EstadoEvento, string> = {
   CANCELADO: 'bg-red-100 text-red-800',
 };
 
-export const ROL_LABELS = {
+export const ROL_LABELS: Record<RolUsuario, string> = {
   ADMIN: 'Administrador',
   COMERCIAL: 'Ejecutivo Comercial',
   OPERATIVO: 'Coordinador Operativo',
   COMPRAS: 'Compras',
   FINANZAS: 'Finanzas',
+  ADMIN_PROVEEDOR: 'Admin proveedor',
+  OPERADOR_PROVEEDOR: 'Operador proveedor',
+};
+
+export const ESTADO_ORDEN_COBRO_LABELS: Record<EstadoOrdenCobro, string> = {
+  BORRADOR: 'Borrador',
+  PENDIENTE: 'Pendiente',
+  PAGADO: 'Pagado',
+  VENCIDO: 'Vencido',
+  CANCELADO: 'Cancelado',
+};
+
+export const ESTADO_ORDEN_COBRO_COLORS: Record<EstadoOrdenCobro, string> = {
+  BORRADOR: 'bg-slate-100 text-slate-700',
+  PENDIENTE: 'bg-amber-100 text-amber-800',
+  PAGADO: 'bg-emerald-100 text-emerald-800',
+  VENCIDO: 'bg-red-100 text-red-800',
+  CANCELADO: 'bg-slate-100 text-slate-500',
+};
+
+export const ESTADO_EVENTO_PROVEEDOR_LABELS: Record<EstadoEventoProveedor, string> = {
+  COTIZACION: 'Cotización',
+  CONFIRMADO: 'Confirmado',
+  EN_EJECUCION: 'En ejecución',
+  COMPLETADO: 'Completado',
+  CANCELADO: 'Cancelado',
+};
+
+export const ESTADO_EVENTO_PROVEEDOR_COLORS: Record<EstadoEventoProveedor, string> = {
+  COTIZACION: 'bg-amber-100 text-amber-800',
+  CONFIRMADO: 'bg-blue-100 text-blue-800',
+  EN_EJECUCION: 'bg-purple-100 text-purple-800',
+  COMPLETADO: 'bg-emerald-100 text-emerald-800',
+  CANCELADO: 'bg-slate-100 text-slate-500',
+};
+
+export const TIPO_SEGUIMIENTO_LABELS: Record<TipoSeguimientoCliente, string> = {
+  LLAMADA: 'Llamada',
+  REUNION: 'Reunión',
+  WHATSAPP: 'WhatsApp',
+  CORREO: 'Correo',
+  VISITA: 'Visita',
+  NOTA: 'Nota',
+  RECORDATORIO: 'Recordatorio',
+};
+
+export const ESTADO_SEGUIMIENTO_LABELS: Record<EstadoSeguimientoCliente, string> = {
+  PENDIENTE: 'Pendiente',
+  COMPLETADO: 'Completado',
+  CANCELADO: 'Cancelado',
+};
+
+export const CALENDARIO_TIPO_LABELS = {
+  EVENTO: 'Evento',
+  ENTREGA: 'Entrega',
+  RECOGER: 'Recoger',
+  SEGUIMIENTO: 'Seguimiento',
+  COBRO: 'Cobro',
+  PAGO_PENDIENTE: 'Pago pendiente',
+} as const;
+
+export const CALENDARIO_TIPO_COLORS = {
+  EVENTO: 'bg-blue-500',
+  ENTREGA: 'bg-emerald-500',
+  RECOGER: 'bg-orange-500',
+  SEGUIMIENTO: 'bg-violet-500',
+  COBRO: 'bg-amber-500',
+  PAGO_PENDIENTE: 'bg-rose-500',
+} as const;
+
+export const AGENDA_SECCION_LABELS = {
+  entregas: 'Entregas',
+  recogidas: 'Recoger',
+  eventos: 'Eventos',
+  cobros: 'Cobros',
+  seguimientos: 'Seguimiento',
+  pagosPendientes: 'Pagos pendientes',
+} as const;
+
+export const AGENDA_SECCION_COLORS = {
+  entregas: 'border-emerald-200 bg-emerald-50',
+  recogidas: 'border-orange-200 bg-orange-50',
+  eventos: 'border-blue-200 bg-blue-50',
+  cobros: 'border-amber-200 bg-amber-50',
+  seguimientos: 'border-violet-200 bg-violet-50',
+  pagosPendientes: 'border-rose-200 bg-rose-50',
 } as const;
 
 export function formatFecha(iso: string) {
@@ -129,6 +222,31 @@ export const ENTIDADES_FEDERATIVAS = [
   'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán', 'Zacatecas',
 ];
 
+export const ALCALDIAS_CDMX = [
+  'Álvaro Obregón',
+  'Azcapotzalco',
+  'Benito Juárez',
+  'Coyoacán',
+  'Cuajimalpa de Morelos',
+  'Cuauhtémoc',
+  'Gustavo A. Madero',
+  'Iztacalco',
+  'Iztapalapa',
+  'La Magdalena Contreras',
+  'Miguel Hidalgo',
+  'Milpa Alta',
+  'Tláhuac',
+  'Tlalpan',
+  'Venustiano Carranza',
+  'Xochimilco',
+];
+
+export const CDMX_ENTIDAD = 'Ciudad de México';
+
+export function esCiudadDeMexico(entidad?: string | null) {
+  return entidad === CDMX_ENTIDAD;
+}
+
 export const TIPO_ACTIVIDAD_LABELS: Record<TipoActividad, string> = {
   MONTAJE: 'Montaje',
   EVENTO: 'Evento',
@@ -195,6 +313,36 @@ export const METODO_PAGO_LABELS: Record<MetodoPago, string> = {
   TARJETA: 'Tarjeta',
   CHEQUE: 'Cheque',
   OTRO: 'Otro',
+};
+
+export const ESTADO_SUSCRIPCION_LABELS: Record<EstadoSuscripcion, string> = {
+  PRUEBA: 'Prueba',
+  ACTIVA: 'Activa',
+  SUSPENDIDA: 'Suspendida',
+  CANCELADA: 'Cancelada',
+  VENCIDA: 'Vencida',
+};
+
+export const ESTADO_SUSCRIPCION_COLORS: Record<EstadoSuscripcion, string> = {
+  PRUEBA: 'bg-sky-100 text-sky-800',
+  ACTIVA: 'bg-emerald-100 text-emerald-800',
+  SUSPENDIDA: 'bg-amber-100 text-amber-800',
+  CANCELADA: 'bg-slate-100 text-slate-500',
+  VENCIDA: 'bg-red-100 text-red-800',
+};
+
+export const ESTADO_PAGO_SUSCRIPCION_LABELS: Record<EstadoPagoSuscripcion, string> = {
+  PENDIENTE: 'Pendiente',
+  PAGADO: 'Pagado',
+  FALLIDO: 'Fallido',
+  REEMBOLSADO: 'Reembolsado',
+};
+
+export const ESTADO_PAGO_SUSCRIPCION_COLORS: Record<EstadoPagoSuscripcion, string> = {
+  PENDIENTE: 'bg-amber-100 text-amber-800',
+  PAGADO: 'bg-emerald-100 text-emerald-800',
+  FALLIDO: 'bg-red-100 text-red-800',
+  REEMBOLSADO: 'bg-slate-100 text-slate-600',
 };
 
 export const ESTADO_MOVIMIENTO_LABELS: Record<EstadoMovimientoFinanciero, string> = {

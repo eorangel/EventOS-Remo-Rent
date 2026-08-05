@@ -14,6 +14,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: dto.email.toLowerCase() },
+      include: { proveedor: { select: { id: true, nombre: true } } },
     });
 
     if (!user || !user.activo) {
@@ -53,7 +54,14 @@ export class AuthService {
   async validateUser(userId: string) {
     return this.prisma.usuario.findUnique({
       where: { id: userId, activo: true },
-      select: { id: true, email: true, nombre: true, rol: true },
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        rol: true,
+        proveedorId: true,
+        proveedor: { select: { id: true, nombre: true } },
+      },
     });
   }
 
@@ -62,11 +70,14 @@ export class AuthService {
     email: string;
     nombre: string;
     rol: string;
+    proveedorId?: string | null;
+    proveedor?: { id: string; nombre: string } | null;
   }) {
     const token = this.jwt.sign({
       sub: user.id,
       email: user.email,
       rol: user.rol,
+      proveedorId: user.proveedorId ?? null,
     });
 
     return {
@@ -76,6 +87,8 @@ export class AuthService {
         email: user.email,
         nombre: user.nombre,
         rol: user.rol,
+        proveedorId: user.proveedorId ?? null,
+        proveedorNombre: user.proveedor?.nombre ?? null,
       },
     };
   }

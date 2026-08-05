@@ -13,6 +13,44 @@ enum RolUsuario {
   OPERATIVO
   COMPRAS
   FINANZAS
+  ADMIN_PROVEEDOR
+  OPERADOR_PROVEEDOR
+}
+
+enum EstadoOrdenCobro {
+  BORRADOR
+  PENDIENTE
+  PAGADO
+  VENCIDO
+  CANCELADO
+}
+
+enum EstadoEventoProveedor {
+  COTIZACION
+  CONFIRMADO
+  EN_EJECUCION
+  COMPLETADO
+  CANCELADO
+}
+
+enum TipoSeguimientoCliente {
+  LLAMADA
+  REUNION
+  WHATSAPP
+  CORREO
+  VISITA
+  NOTA
+  RECORDATORIO
+}
+
+enum EstadoSeguimientoCliente {
+  PENDIENTE
+  COMPLETADO
+  CANCELADO
+}
+
+enum PasarelaPagoProveedor {
+  MERCADO_PAGO
 }
 
 enum EstadoEvento {
@@ -96,6 +134,21 @@ enum MetodoPago {
   OTRO
 }
 
+enum EstadoSuscripcion {
+  PRUEBA
+  ACTIVA
+  SUSPENDIDA
+  CANCELADA
+  VENCIDA
+}
+
+enum EstadoPagoSuscripcion {
+  PENDIENTE
+  PAGADO
+  FALLIDO
+  REEMBOLSADO
+}
+
 enum EstadoMovimientoFinanciero {
   PENDIENTE
   CONFIRMADO
@@ -116,11 +169,15 @@ model Usuario {
   passwordHash String
   nombre       String
   rol          RolUsuario
+  proveedorId  String?
   activo       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  eventosCreados Evento[] @relation("EventoCreador")
+  proveedor      Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  eventosCreados Evento[]   @relation("EventoCreador")
+
+  @@index([proveedorId])
 }
 
 model Cliente {
@@ -197,6 +254,7 @@ model Proveedor {
   direccion            String?
   ciudad               String?
   entidadFederativa    String?
+  alcaldia             String?
   latitud              Decimal?                    @db.Decimal(10, 7)
   longitud             Decimal?                    @db.Decimal(10, 7)
   tipo                 TipoProveedor               @default(SUBARRENDO)
@@ -215,11 +273,21 @@ model Proveedor {
   productos   ProductoProveedor[]
   coberturas  CoberturaProveedor[]
   servicios   ServicioProveedor[]
+  usuarios    Usuario[]
+  clientesPortal ClienteProveedor[]
+  ordenesCobro   OrdenCobro[]
+  eventosClientes EventoClienteProveedor[]
+  seguimientos    SeguimientoCliente[]
+  configPasarela  ConfigPasarelaProveedor?
+  perfilEmpresa   PerfilEmpresaProveedor?
+  cotizaciones    CotizacionProveedor[]
+  suscripcion     Suscripcion?
 
   @@index([tipo])
   @@index([activo])
   @@index([entidadFederativa])
   @@index([ciudad])
+  @@index([alcaldia])
   @@index([estadoVerificacion])
 }
 
@@ -238,6 +306,7 @@ model ProductoProveedor {
 
   proveedor Proveedor               @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
   fotos     FotoProductoProveedor[]
+  cotizacionItems CotizacionProveedorItem[]
 
   @@index([proveedorId])
   @@index([categoria])
@@ -453,4 +522,241 @@ model Documento {
   @@index([eventoId])
   @@index([tipo])
   @@index([cotizacionId])
+}
+
+model ClienteProveedor {
+  id          String   @id @default(cuid())
+  proveedorId String
+  nombre      String
+  empresa     String?
+  email       String?
+  telefono    String?
+  notas       String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  proveedor Proveedor    @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  cobros    OrdenCobro[]
+  eventos   EventoClienteProveedor[]
+  seguimientos SeguimientoCliente[]
+  cotizaciones CotizacionProveedor[]
+
+  @@index([proveedorId])
+  @@index([nombre])
+}
+
+model OrdenCobro {
+  id                 String           @id @default(cuid())
+  proveedorId        String
+  clienteProveedorId String
+  folio              String
+  concepto           String
+  monto              Decimal          @db.Decimal(12, 2)
+  estado             EstadoOrdenCobro @default(PENDIENTE)
+  metodoPago         MetodoPago       @default(TRANSFERENCIA)
+  referencia         String?
+  fechaVencimiento   DateTime?
+  pagadoEn           DateTime?
+  notas              String?
+  tokenPago          String                 @unique @default(cuid())
+  linkPago           String?
+  mpPreferenceId     String?
+  mpPaymentId        String?
+  linkPagoGeneradoEn DateTime?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  proveedor        Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  clienteProveedor ClienteProveedor @relation(fields: [clienteProveedorId], references: [id], onDelete: Restrict)
+
+  @@unique([proveedorId, folio])
+  @@index([proveedorId])
+  @@index([clienteProveedorId])
+  @@index([estado])
+  @@index([createdAt])
+  @@index([tokenPago])
+}
+
+model ConfigPasarelaProveedor {
+  id                     String                @id @default(cuid())
+  proveedorId            String                @unique
+  pasarela               PasarelaPagoProveedor @default(MERCADO_PAGO)
+  mercadoPagoAccessToken String?
+  mercadoPagoPublicKey   String?
+  activo                 Boolean               @default(false)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+}
+
+model PerfilEmpresaProveedor {
+  id                     String   @id @default(cuid())
+  proveedorId            String   @unique
+  logoUrl                String?
+  regimenFiscal          String?
+  codigoPostal           String?
+  horario                Json?
+  redesSociales          Json?
+  politicasRenta         String?  @db.Text
+  condicionesCancelacion String?  @db.Text
+  ivaIncluido            Boolean  @default(false)
+  moneda                 String   @default("MXN")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+}
+
+model CotizacionProveedor {
+  id                  String           @id @default(cuid())
+  proveedorId         String
+  clienteProveedorId  String
+  folio               String
+  titulo              String?
+  estado              EstadoCotizacion @default(BORRADOR)
+  fechaEvento         DateTime?
+  lugarEntrega        String?
+  costoEnvio          Decimal          @default(0) @db.Decimal(12, 2)
+  descuentoPorcentaje Decimal          @default(0) @db.Decimal(5, 2)
+  descuentoMonto      Decimal          @default(0) @db.Decimal(12, 2)
+  ivaPorcentaje       Decimal          @default(16) @db.Decimal(5, 2)
+  ivaIncluido         Boolean          @default(false)
+  subtotal            Decimal          @default(0) @db.Decimal(12, 2)
+  montoIva            Decimal          @default(0) @db.Decimal(12, 2)
+  total               Decimal          @default(0) @db.Decimal(12, 2)
+  notas               String?          @db.Text
+  validoHasta         DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  proveedor        Proveedor                 @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  clienteProveedor ClienteProveedor          @relation(fields: [clienteProveedorId], references: [id], onDelete: Restrict)
+  items            CotizacionProveedorItem[]
+
+  @@unique([proveedorId, folio])
+  @@index([proveedorId])
+  @@index([clienteProveedorId])
+  @@index([estado])
+  @@index([createdAt])
+}
+
+model CotizacionProveedorItem {
+  id                    String  @id @default(cuid())
+  cotizacionProveedorId String
+  productoProveedorId   String?
+  descripcion           String
+  cantidad              Int     @default(1)
+  precioUnitario        Decimal @db.Decimal(12, 2)
+  subtotal              Decimal @db.Decimal(12, 2)
+
+  cotizacion        CotizacionProveedor @relation(fields: [cotizacionProveedorId], references: [id], onDelete: Cascade)
+  productoProveedor ProductoProveedor?  @relation(fields: [productoProveedorId], references: [id], onDelete: SetNull)
+
+  @@index([cotizacionProveedorId])
+  @@index([productoProveedorId])
+}
+
+model EventoClienteProveedor {
+  id                 String                @id @default(cuid())
+  proveedorId        String
+  clienteProveedorId String
+  titulo             String
+  descripcion        String?
+  fechaEvento        DateTime
+  fechaFin           DateTime?
+  fechaEntrega       DateTime?
+  fechaRecogida      DateTime?
+  lugar              String?
+  estado             EstadoEventoProveedor @default(COTIZACION)
+  montoEstimado      Decimal?              @db.Decimal(12, 2)
+  notas              String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  proveedor        Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  clienteProveedor ClienteProveedor @relation(fields: [clienteProveedorId], references: [id], onDelete: Cascade)
+
+  @@index([proveedorId])
+  @@index([clienteProveedorId])
+  @@index([fechaEvento])
+  @@index([estado])
+}
+
+model SeguimientoCliente {
+  id                 String                   @id @default(cuid())
+  proveedorId        String
+  clienteProveedorId String
+  tipo               TipoSeguimientoCliente
+  titulo             String
+  descripcion        String?
+  fechaProgramada    DateTime
+  completadoEn       DateTime?
+  estado             EstadoSeguimientoCliente @default(PENDIENTE)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  proveedor        Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  clienteProveedor ClienteProveedor @relation(fields: [clienteProveedorId], references: [id], onDelete: Cascade)
+
+  @@index([proveedorId])
+  @@index([clienteProveedorId])
+  @@index([fechaProgramada])
+  @@index([estado])
+}
+
+model Plan {
+  id            String   @id @default(cuid())
+  nombre        String
+  codigo        String   @unique
+  precioMensual Decimal  @db.Decimal(12, 2)
+  moneda        String   @default("MXN")
+  descripcion   String?
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  suscripciones Suscripcion[]
+}
+
+model Suscripcion {
+  id             String             @id @default(cuid())
+  proveedorId    String             @unique
+  planId         String
+  estado         EstadoSuscripcion  @default(PRUEBA)
+  fechaAlta      DateTime           @default(now())
+  proximoCobro   DateTime?
+  metodoPago     MetodoPago?
+  referenciaPago String?
+  canceladaEn    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  proveedor Proveedor           @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  plan      Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
+  pagos     PagoSuscripcion[]
+
+  @@index([planId])
+  @@index([estado])
+  @@index([proximoCobro])
+}
+
+model PagoSuscripcion {
+  id            String                @id @default(cuid())
+  suscripcionId String
+  monto         Decimal               @db.Decimal(12, 2)
+  moneda        String                @default("MXN")
+  estado        EstadoPagoSuscripcion @default(PAGADO)
+  metodoPago    MetodoPago
+  referencia    String?
+  periodoInicio DateTime
+  periodoFin    DateTime
+  pagadoEn      DateTime              @default(now())
+  createdAt     DateTime              @default(now())
+
+  suscripcion Suscripcion @relation(fields: [suscripcionId], references: [id], onDelete: Cascade)
+
+  @@index([suscripcionId])
+  @@index([pagadoEn])
 }

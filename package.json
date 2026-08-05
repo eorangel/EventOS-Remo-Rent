@@ -10,6 +10,7 @@
     "dev": "npm run dev --workspaces --if-present",
     "dev:api": "npm run start:dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
+    "dev:landing": "npm run dev:clean -w apps/landing",
     "build": "npm run build --workspaces --if-present",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",

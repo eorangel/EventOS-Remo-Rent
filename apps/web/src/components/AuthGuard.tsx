@@ -3,15 +3,21 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStoredUser } from '@/lib/api';
+import { isProveedorUser } from '@/lib/auth-helpers';
+import type { Usuario } from '@/lib/types';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const user = getStoredUser();
+    const user = getStoredUser<Usuario>();
     if (!user) {
       router.replace('/login');
+      return;
+    }
+    if (isProveedorUser(user.rol)) {
+      router.replace('/proveedor/dashboard');
       return;
     }
     setReady(true);

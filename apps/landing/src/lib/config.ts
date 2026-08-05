@@ -1,0 +1,146 @@
+export const siteConfig = {
+  name: 'EventOS',
+  company: 'Remo&Rent',
+  heroHeadline:
+    'Organiza tus eventos, administra tu inventario y cobra más rápido desde una sola plataforma.',
+  description:
+    'CRM, calendario, catálogo, inventario y cobros para empresas de renta de mobiliario y producción de eventos.',
+  appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'contacto@remorent.mx',
+  social: {
+    instagram: process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM ?? '#',
+    facebook: process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK ?? '#',
+    linkedin: process.env.NEXT_PUBLIC_SOCIAL_LINKEDIN ?? '#',
+  },
+};
+
+export const problems = [
+  {
+    title: 'Excel',
+    description: 'Listas desactualizadas, versiones distintas y cero visibilidad en tiempo real.',
+    icon: '📊',
+  },
+  {
+    title: 'WhatsApp',
+    description: 'Cotizaciones, confirmaciones y pagos mezclados en chats que se pierden.',
+    icon: '💬',
+  },
+  {
+    title: 'Cobros atrasados',
+    description: 'Sin recordatorios ni seguimiento claro de quién debe y cuánto.',
+    icon: '⏳',
+  },
+  {
+    title: 'Doble reserva de mobiliario',
+    description: 'Prometes el mismo inventario a dos eventos el mismo día.',
+    icon: '⚠️',
+  },
+] as const;
+
+export const productFeatures = [
+  {
+    title: 'CRM',
+    description: 'Clientes, eventos y cotizaciones en un solo flujo.',
+    icon: '◫',
+  },
+  {
+    title: 'Calendario',
+    description: 'Entregas, montajes y recogidas integrados a tu operación.',
+    icon: '📅',
+  },
+  {
+    title: 'Catálogo',
+    description: 'Productos con fotos, precios y categorías listos para cotizar.',
+    icon: '▣',
+  },
+  {
+    title: 'Inventario',
+    description: 'Disponibilidad por fecha para evitar sobreventa.',
+    icon: '📦',
+  },
+  {
+    title: 'Cobros',
+    description: 'Órdenes de cobro, estados y seguimiento de pagos.',
+    icon: '◈',
+  },
+  {
+    title: 'Pasarela',
+    description: 'Links de pago con Mercado Pago en plan Pro.',
+    icon: '💳',
+  },
+  {
+    title: 'Reportes',
+    description: 'Dashboard financiero y métricas de tu operación.',
+    icon: '📈',
+  },
+] as const;
+
+export const planComparison = [
+  { feature: 'CRM', basico: true, pro: true },
+  { feature: 'Clientes', basico: true, pro: true },
+  { feature: 'Calendario', basico: true, pro: true },
+  { feature: 'Catálogo', basico: true, pro: true },
+  { feature: 'Cobros manuales', basico: true, pro: true },
+  { feature: 'Pasarela', basico: false, pro: true },
+  { feature: 'Links de pago', basico: false, pro: true },
+  { feature: 'Automatización', basico: false, pro: true },
+] as const;
+
+export const pricingPlans = [
+  {
+    id: 'basico',
+    name: 'Plan Básico',
+    price: 300,
+    trialDays: 30,
+    highlighted: false,
+  },
+  {
+    id: 'pro',
+    name: 'Plan Pro',
+    price: 700,
+    trialDays: 30,
+    highlighted: true,
+  },
+] as const;
+
+export const faqItems = [
+  {
+    question: '¿Tiene permanencia?',
+    answer:
+      'No. Puedes contratar mes a mes. El plan Pro y el Básico se renuevan mensualmente sin plazos forzosos.',
+  },
+  {
+    question: '¿Puedo cancelar?',
+    answer:
+      'Sí, en cualquier momento desde tu cuenta o escribiéndonos antes de tu próximo cobro. No hay penalización por cancelación.',
+  },
+  {
+    question: '¿Cómo funciona la prueba?',
+    answer:
+      'Tienes 30 días gratis para explorar el plan que elijas. No pedimos tarjeta al registrarte. Al terminar la prueba, decides si continúas.',
+  },
+  {
+    question: '¿Cómo conecto Mercado Pago?',
+    answer:
+      'En el plan Pro, ve a Configuración → Pasarela de pagos e ingresa tu Access Token de Mercado Pago. En minutos puedes generar links de cobro.',
+  },
+  {
+    question: '¿Hay soporte?',
+    answer:
+      'Sí. Soporte por correo en todos los planes. En Pro priorizamos incidencias operativas y te ayudamos con la configuración inicial.',
+  },
+] as const;
+
+export function signupMailto(plan?: string) {
+  const subject = plan
+    ? `Quiero empezar — ${plan}`
+    : 'Quiero empezar gratis — EventOS';
+  const body = plan
+    ? `Hola,\n\nQuiero comenzar con el ${plan} y activar mi prueba de 30 días.\n\nEmpresa:\nNombre:\nTeléfono:\n`
+    : `Hola,\n\nMe interesa empezar gratis con EventOS.\n\nEmpresa:\nNombre:\nTeléfono:\n`;
+  return `mailto:${siteConfig.contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+export function demoMailto() {
+  return `mailto:${siteConfig.contactEmail}?subject=${encodeURIComponent('Solicitud de demostración — EventOS')}&body=${encodeURIComponent('Hola,\n\nMe gustaría agendar una demostración de EventOS.\n\nEmpresa:\nNombre:\nTeléfono:\nHorario preferido:\n')}`;
+}

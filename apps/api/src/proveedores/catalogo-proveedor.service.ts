@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { EstadoCotizacion } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { toNumber } from '../common/utils/pricing';
+import { fechaEventoEnRango } from '../common/utils/fecha-evento';
 import {
   CreateCoberturaDto,
   CreateProductoProveedorDto,
@@ -8,6 +10,11 @@ import {
   FotoProductoDto,
   UpdateProductoProveedorDto,
 } from './dto/catalogo.dto';
+import {
+  buildPlantillaExcel,
+  FilaProductoExcel,
+  parseProductosExcel,
+} from './excel-productos.parser';
 
 const productoInclude = {
   fotos: { orderBy: { orden: 'asc' as const } },
@@ -166,9 +173,229 @@ export class CatalogoProveedorService {
     return this.prisma.servicioProveedor.delete({ where: { id } });
   }
 
+  getPlantillaExcelProductos(): Buffer {
+    return buildPlantillaExcel();
+  }
+
+  previewImportProductosExcel(buffer: Buffer) {
+    const filas = parseProductosExcel(buffer);
+    return this.buildImportResult(filas, true);
+  }
+
+  async importProductosExcel(proveedorId: string, buffer: Buffer) {
+    await this.ensureProveedor(proveedorId);
+    const filas = parseProductosExcel(buffer);
+    const validas = filas.filter((f) => f.valido);
+
+    if (validas.length === 0) {
+      throw new BadRequestException('No hay filas válidas para importar. Revise la vista previa.');
+    }
+
+    const existentes = await this.prisma.productoProveedor.findMany({
+      where: { proveedorId },
+      select: { id: true, nombre: true },
+    });
+    const porNombre = new Map(
+      existentes.map((p) => [p.nombre.trim().toLowerCase(), p.id]),
+    );
+
+    let creados = 0;
+    let actualizados = 0;
+
+    for (const fila of validas) {
+      const key = fila.nombre.trim().toLowerCase();
+      const existenteId = porNombre.get(key);
+
+      if (existenteId) {
+        await this.prisma.productoProveedor.update({
+          where: { id: existenteId },
+          data: {
+            categoria: fila.categoria,
+            descripcion: fila.descripcion,
+            cantidadDisponible: fila.cantidadDisponible,
+            precioReferencia: fila.precioReferencia,
+            unidadMedida: fila.unidadMedida,
+            activo: true,
+          },
+        });
+        if (fila.fotoUrl) {
+          await this.prisma.fotoProductoProveedor.deleteMany({
+            where: { productoProveedorId: existenteId },
+          });
+          await this.prisma.fotoProductoProveedor.create({
+            data: {
+              productoProveedorId: existenteId,
+              url: fila.fotoUrl,
+              esPrincipal: true,
+              orden: 0,
+            },
+          });
+        }
+        actualizados += 1;
+      } else {
+        const producto = await this.prisma.productoProveedor.create({
+          data: {
+            proveedorId,
+            nombre: fila.nombre.trim(),
+            categoria: fila.categoria,
+            descripcion: fila.descripcion,
+            cantidadDisponible: fila.cantidadDisponible,
+            precioReferencia: fila.precioReferencia,
+            unidadMedida: fila.unidadMedida,
+            activo: true,
+            fotos: fila.fotoUrl
+              ? { create: [{ url: fila.fotoUrl, esPrincipal: true, orden: 0 }] }
+              : undefined,
+          },
+        });
+        porNombre.set(key, producto.id);
+        creados += 1;
+      }
+    }
+
+    return {
+      ...this.buildImportResult(filas, false),
+      creados,
+      actualizados,
+    };
+  }
+
+  private buildImportResult(filas: FilaProductoExcel[], vistaPrevia: boolean) {
+    const validas = filas.filter((f) => f.valido).length;
+    return {
+      vistaPrevia,
+      totalFilas: filas.length,
+      validas,
+      invalidas: filas.length - validas,
+      filas,
+    };
+  }
+
   private async ensureProveedor(id: string) {
     const p = await this.prisma.proveedor.findUnique({ where: { id } });
     if (!p) throw new NotFoundException('Proveedor no encontrado');
     return p;
+  }
+
+  async getDisponibilidad(
+    proveedorId: string,
+    productoProveedorId: string,
+    fechaInicio: string,
+    fechaFin: string,
+    excludeCotizacionId?: string,
+  ) {
+    const producto = await this.getProducto(proveedorId, productoProveedorId);
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
+
+    const reservado = await this.calcularReservado(
+      proveedorId,
+      productoProveedorId,
+      inicio,
+      fin,
+      excludeCotizacionId,
+    );
+
+    const total = producto.cantidadDisponible;
+    const disponible = Math.max(0, total - reservado);
+
+    return {
+      productoProveedorId,
+      cantidadTotal: total,
+      cantidadReservada: reservado,
+      cantidadDisponible: disponible,
+      sinStock: total === 0,
+    };
+  }
+
+  async calcularReservado(
+    proveedorId: string,
+    productoProveedorId: string,
+    inicio: Date,
+    fin: Date,
+    excludeCotizacionId?: string,
+  ): Promise<number> {
+    const items = await this.prisma.cotizacionProveedorItem.findMany({
+      where: {
+        productoProveedorId,
+        cotizacion: {
+          proveedorId,
+          estado: {
+            in: [
+              EstadoCotizacion.BORRADOR,
+              EstadoCotizacion.ENVIADA,
+              EstadoCotizacion.APROBADA,
+            ],
+          },
+          fechaEvento: { not: null },
+          ...(excludeCotizacionId ? { id: { not: excludeCotizacionId } } : {}),
+        },
+      },
+      include: { cotizacion: true },
+    });
+
+    let reservado = 0;
+    for (const item of items) {
+      if (fechaEventoEnRango(item.cotizacion.fechaEvento!, inicio, fin)) {
+        reservado += item.cantidad;
+      }
+    }
+
+    return reservado;
+  }
+
+  async validarDisponibilidad(
+    proveedorId: string,
+    productoProveedorId: string,
+    cantidad: number,
+    fechaInicio: string,
+    fechaFin: string,
+    excludeCotizacionId?: string,
+  ) {
+    const producto = await this.getProducto(proveedorId, productoProveedorId);
+    const disp = await this.getDisponibilidad(
+      proveedorId,
+      productoProveedorId,
+      fechaInicio,
+      fechaFin,
+      excludeCotizacionId,
+    );
+
+    if (disp.sinStock) {
+      throw new BadRequestException(
+        `"${producto.nombre}" no tiene existencias en inventario.`,
+      );
+    }
+
+    if (cantidad > disp.cantidadDisponible) {
+      throw new BadRequestException(
+        `"${producto.nombre}": solo hay ${disp.cantidadDisponible} disponible(s) en esa fecha (${disp.cantidadReservada} de ${disp.cantidadTotal} ya rentadas). Se solicitan ${cantidad}.`,
+      );
+    }
+
+    return disp;
+  }
+
+  async listarConDisponibilidad(
+    proveedorId: string,
+    fechaInicio: string,
+    fechaFin: string,
+    excludeCotizacionId?: string,
+    filters?: { categoria?: string; search?: string },
+  ) {
+    const productos = await this.listProductos(proveedorId, filters);
+
+    return Promise.all(
+      productos.map(async (producto) => {
+        const disp = await this.getDisponibilidad(
+          proveedorId,
+          producto.id,
+          fechaInicio,
+          fechaFin,
+          excludeCotizacionId,
+        );
+        return { ...producto, ...disp };
+      }),
+    );
   }
 }

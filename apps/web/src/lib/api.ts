@@ -26,7 +26,14 @@ export function clearToken() {
 export function getStoredUser<T>() {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem('eventos_user');
-  return raw ? (JSON.parse(raw) as T) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    localStorage.removeItem('eventos_user');
+    localStorage.removeItem('eventos_token');
+    return null;
+  }
 }
 
 export function setStoredUser(user: unknown) {
@@ -51,6 +58,11 @@ export async function apiFetch<T>(
   const response = await fetch(`${API_URL}/api${path}`, {
     ...options,
     headers,
+  }).catch(() => {
+    throw new ApiError(
+      'No se pudo conectar con el servidor. Verifica que la API esté corriendo en el puerto 3001.',
+      0,
+    );
   });
 
   if (!response.ok) {
@@ -62,11 +74,60 @@ export async function apiFetch<T>(
     } catch {
       /* ignore */
     }
+    if (response.status === 0 || message === 'Error en la solicitud') {
+      message =
+        'No se pudo conectar con el servidor. Verifica que la API esté corriendo en el puerto 3001.';
+    }
     throw new ApiError(message, response.status);
   }
 
   if (response.status === 204) {
     return undefined as T;
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export async function apiDownload(path: string, filename: string): Promise<void> {
+  const token = getToken();
+  const headers = new Headers();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const response = await fetch(`${API_URL}/api${path}`, { headers });
+  if (!response.ok) {
+    throw new ApiError('No se pudo descargar el archivo', response.status);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function apiUploadForm<T>(path: string, formData: FormData): Promise<T> {
+  const token = getToken();
+  const headers = new Headers();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const response = await fetch(`${API_URL}/api${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = 'Error al subir el archivo';
+    try {
+      const data = await response.json();
+      message = data.message ?? message;
+      if (Array.isArray(message)) message = message.join(', ');
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(message, response.status);
   }
 
   return response.json() as Promise<T>;

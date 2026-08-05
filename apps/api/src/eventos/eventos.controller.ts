@@ -20,6 +20,25 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class EventosController {
   constructor(private eventosService: EventosService) {}
 
+  @Get('crm/resumen')
+  crmResumen() {
+    return this.eventosService.getCrmResumen();
+  }
+
+  @Get('crm')
+  findAllCrm(
+    @Query('search') search?: string,
+    @Query('origen') origen?: 'PLATAFORMA' | 'PROVEEDOR',
+    @Query('estado') estado?: string,
+  ) {
+    return this.eventosService.findAllCrm({ search, origen, estado });
+  }
+
+  @Get('crm/proveedor/:id')
+  findOneCrmProveedor(@Param('id') id: string) {
+    return this.eventosService.findOneCrmProveedor(id);
+  }
+
   @Get()
   findAll(
     @Query('estado') estado?: EstadoEvento,

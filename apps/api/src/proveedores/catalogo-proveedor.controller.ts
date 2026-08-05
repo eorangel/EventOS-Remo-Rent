@@ -8,7 +8,13 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  Res,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { CatalogoProveedorService } from './catalogo-proveedor.service';
 import {
   CreateCoberturaDto,
@@ -31,6 +37,47 @@ export class CatalogoProveedorController {
     @Query('search') search?: string,
   ) {
     return this.catalogoService.listProductos(proveedorId, { categoria, search });
+  }
+
+  @Get('productos/plantilla-excel')
+  descargarPlantilla(@Res({ passthrough: false }) res: Response) {
+    const buffer = this.catalogoService.getPlantillaExcelProductos();
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="plantilla-inventario-proveedor.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Post('productos/importar-excel')
+  @UseInterceptors(
+    FileInterceptor('archivo', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  importarProductosExcel(
+    @Param('proveedorId') proveedorId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Query('vistaPrevia') vistaPrevia?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Debe enviar un archivo Excel (.xlsx o .xls)');
+    }
+
+    const nombre = file.originalname?.toLowerCase() ?? '';
+    if (!nombre.endsWith('.xlsx') && !nombre.endsWith('.xls') && !nombre.endsWith('.csv')) {
+      throw new BadRequestException('Formato no soportado. Use .xlsx, .xls o .csv');
+    }
+
+    try {
+      if (vistaPrevia === 'true') {
+        return this.catalogoService.previewImportProductosExcel(file.buffer);
+      }
+      return this.catalogoService.importProductosExcel(proveedorId, file.buffer);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al procesar el archivo';
+      throw new BadRequestException(message);
+    }
   }
 
   @Get('productos/:id')

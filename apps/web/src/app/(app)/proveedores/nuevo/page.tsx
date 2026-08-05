@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
-import { ENTIDADES_FEDERATIVAS, ORIGEN_CAPTURA_LABELS } from '@/lib/labels';
+import { ALCALDIAS_CDMX, ENTIDADES_FEDERATIVAS, ORIGEN_CAPTURA_LABELS, esCiudadDeMexico } from '@/lib/labels';
 import type { OrigenCapturaProveedor, TipoProveedor } from '@/lib/types';
 
 export default function NuevoProveedorPage() {
@@ -22,6 +22,7 @@ export default function NuevoProveedorPage() {
     direccion: '',
     ciudad: '',
     entidadFederativa: 'Ciudad de México',
+    alcaldia: '',
     tipo: 'SUBARRENDO' as TipoProveedor,
     origenCaptura: 'INTERNO' as OrigenCapturaProveedor,
     eventosSimultaneosMax: '',
@@ -40,6 +41,7 @@ export default function NuevoProveedorPage() {
         method: 'POST',
         body: JSON.stringify({
           ...form,
+          alcaldia: form.alcaldia || undefined,
           eventosSimultaneosMax: form.eventosSimultaneosMax ? Number(form.eventosSimultaneosMax) : undefined,
           unidadesMaxEntrega: form.unidadesMaxEntrega ? Number(form.unidadesMaxEntrega) : undefined,
           radioCoberturaKm: form.radioCoberturaKm ? Number(form.radioCoberturaKm) : undefined,
@@ -115,10 +117,35 @@ export default function NuevoProveedorPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">Entidad federativa</label>
-                <select value={form.entidadFederativa} onChange={(e) => setForm({ ...form, entidadFederativa: e.target.value })} className="w-full">
+                <select
+                  value={form.entidadFederativa}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      entidadFederativa: e.target.value,
+                      alcaldia: esCiudadDeMexico(e.target.value) ? form.alcaldia : '',
+                    })
+                  }
+                  className="w-full"
+                >
                   {ENTIDADES_FEDERATIVAS.map((e) => <option key={e} value={e}>{e}</option>)}
                 </select>
               </div>
+              {esCiudadDeMexico(form.entidadFederativa) && (
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Alcaldía (CDMX)</label>
+                  <select
+                    value={form.alcaldia}
+                    onChange={(e) => setForm({ ...form, alcaldia: e.target.value })}
+                    className="w-full"
+                  >
+                    <option value="">Seleccionar alcaldía...</option>
+                    {ALCALDIAS_CDMX.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
