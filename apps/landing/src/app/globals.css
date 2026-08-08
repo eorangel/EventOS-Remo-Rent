@@ -40,10 +40,10 @@ body {
   }
 
   .eyebrow {
-    @apply text-sm font-semibold uppercase tracking-wider text-brand-600;
+    @apply text-sm font-semibold uppercase tracking-wider text-brand-400;
   }
 
   .hero-panel {
-    @apply overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 text-white shadow-2xl;
+    @apply overflow-hidden rounded-3xl border border-brand-900 bg-gradient-to-br from-brand-950 via-brand-900 to-brand-950 text-white shadow-2xl;
   }
 }

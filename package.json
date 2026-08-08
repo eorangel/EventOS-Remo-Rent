@@ -16,6 +16,8 @@
     "db:down": "docker compose down",
     "db:migrate": "npm run prisma:migrate -w apps/api",
     "db:seed": "npm run prisma:seed -w apps/api",
+    "db:seed:prod": "npm run prisma:seed:prod -w apps/api",
+    "db:clean-demo": "npm run prisma:clean-demo -w apps/api",
     "db:studio": "npm run prisma:studio -w apps/api"
   }
 }

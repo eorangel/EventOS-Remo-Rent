@@ -6,11 +6,12 @@ import { apiFetch, setStoredUser, setToken } from '@/lib/api';
 import { getLoginRedirect } from '@/lib/auth-helpers';
 import type { Usuario } from '@/lib/types';
 import { Button } from '@/components/ui';
+import { RemoLogo } from '@/components/RemoLogo';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@remorent.mx');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -36,16 +37,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-950 via-brand-800 to-slate-900 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-950 via-brand-900 to-brand-950 px-4">
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-xl font-bold text-white">
-            E
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900">EventOS</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Sistema Operativo para Eventos — Remo&Rent
-          </p>
+        <div className="mb-8 flex justify-center">
+          <RemoLogo variant="full" priority />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -56,6 +51,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
               className="w-full"
             />
           </div>
@@ -66,6 +62,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
               className="w-full"
             />
           </div>
@@ -78,11 +75,6 @@ export default function LoginPage() {
             {loading ? 'Entrando...' : 'Iniciar sesión'}
           </Button>
         </form>
-
-        <p className="mt-6 text-center text-xs text-slate-400">
-          Demo plataforma: admin@remorent.mx / admin123<br />
-          Demo proveedor: proveedor@demo.mx / proveedor123
-        </p>
       </div>
     </div>
   );

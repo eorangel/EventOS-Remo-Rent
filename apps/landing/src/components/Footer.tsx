@@ -1,23 +1,16 @@
 import Link from 'next/link';
 import { siteConfig } from '@/lib/config';
+import { RemoLogo } from '@/components/RemoLogo';
 
 export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer id="contacto" className="border-t border-slate-800 bg-slate-900 text-slate-300">
+    <footer id="contacto" className="border-t border-brand-900 bg-brand-950 text-slate-300">
       <div className="section-shell py-14">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-base font-bold text-white">
-                E
-              </span>
-              <div>
-                <p className="text-lg font-bold text-white">{siteConfig.name}</p>
-                <p className="text-sm text-slate-400">{siteConfig.company}</p>
-              </div>
-            </div>
+            <RemoLogo variant="compact" />
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
               {siteConfig.description}
             </p>
@@ -81,8 +74,8 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 border-t border-slate-800 pt-8 text-center text-xs text-slate-500">
-          © {year} {siteConfig.company}. Todos los derechos reservados.
+        <div className="mt-12 border-t border-brand-900 pt-8 text-center text-xs text-slate-500">
+          © {year} {siteConfig.name}. Todos los derechos reservados.
         </div>
       </div>
     </footer>

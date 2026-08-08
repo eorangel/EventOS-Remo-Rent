@@ -55,7 +55,7 @@ export default function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 text-white">
+        <section className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-950 text-white">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(203,67,54,0.25),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.08),transparent_35%)]" />
           <div className="section-shell relative section-pad">
             <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-16">
@@ -130,7 +130,7 @@ export default function LandingPage() {
                   Un CRM diseñado para tu operación de eventos
                 </h2>
                 <p className="mt-4 text-lg leading-relaxed text-slate-600">
-                  EventOS centraliza clientes, eventos, inventario y cobros. Mismo estilo visual,
+                  REMO centraliza clientes, eventos, inventario y cobros. Mismo estilo visual,
                   misma lógica operativa — listo para tu equipo desde el día uno.
                 </p>
                 <ul className="mt-8 space-y-4">
@@ -305,7 +305,7 @@ export default function LandingPage() {
                 Empieza a operar mejor hoy
               </h2>
               <p className="mx-auto mt-4 max-w-xl text-lg text-slate-300">
-                Prueba EventOS 30 días gratis o agenda una demo con nuestro equipo.
+                Prueba REMO 30 días gratis o agenda una demo con nuestro equipo.
               </p>
               <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <a href={signupMailto()} className="btn-primary">

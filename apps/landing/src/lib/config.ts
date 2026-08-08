@@ -1,6 +1,7 @@
 export const siteConfig = {
-  name: 'EventOS',
-  company: 'Remo&Rent',
+  name: 'REMO',
+  tagline: 'Event Operating System',
+  company: 'REMO',
   heroHeadline:
     'Organiza tus eventos, administra tu inventario y cobra más rápido desde una sola plataforma.',
   description:
@@ -134,13 +135,13 @@ export const faqItems = [
 export function signupMailto(plan?: string) {
   const subject = plan
     ? `Quiero empezar — ${plan}`
-    : 'Quiero empezar gratis — EventOS';
+    : 'Quiero empezar gratis — REMO';
   const body = plan
     ? `Hola,\n\nQuiero comenzar con el ${plan} y activar mi prueba de 30 días.\n\nEmpresa:\nNombre:\nTeléfono:\n`
-    : `Hola,\n\nMe interesa empezar gratis con EventOS.\n\nEmpresa:\nNombre:\nTeléfono:\n`;
+    : `Hola,\n\nMe interesa empezar gratis con REMO.\n\nEmpresa:\nNombre:\nTeléfono:\n`;
   return `mailto:${siteConfig.contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 export function demoMailto() {
-  return `mailto:${siteConfig.contactEmail}?subject=${encodeURIComponent('Solicitud de demostración — EventOS')}&body=${encodeURIComponent('Hola,\n\nMe gustaría agendar una demostración de EventOS.\n\nEmpresa:\nNombre:\nTeléfono:\nHorario preferido:\n')}`;
+  return `mailto:${siteConfig.contactEmail}?subject=${encodeURIComponent('Solicitud de demostración — REMO')}&body=${encodeURIComponent('Hola,\n\nMe gustaría agendar una demostración de REMO.\n\nEmpresa:\nNombre:\nTeléfono:\nHorario preferido:\n')}`;
 }
