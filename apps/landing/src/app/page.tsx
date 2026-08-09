@@ -182,12 +182,11 @@ export default function LandingPage() {
 
             <div className="mt-16">
               <p className="text-center text-sm font-semibold uppercase tracking-wider text-brand-600">
-                Así se ve en producción
+                Así se ve en el portal web (escritorio)
               </p>
-              <div className="mt-8 grid gap-6 lg:grid-cols-3">
-                <PlatformPreview variant="dashboard" compact />
-                <PlatformPreview variant="calendario" compact />
-                <PlatformPreview variant="cobros" compact />
+              <div className="mt-8 space-y-8">
+                <PlatformPreview variant="calendario" />
+                <PlatformPreview variant="cobros" />
               </div>
             </div>
           </div>
