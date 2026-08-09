@@ -8,30 +8,31 @@ type RemoLogoProps = {
 
 const variantConfig = {
   full: {
-    imageClass: 'h-auto w-full max-w-[min(100%,340px)] sm:max-w-[380px]',
-    width: 380,
-    height: 420,
+    imageClass: 'h-auto w-full max-w-[min(100%,380px)] sm:max-w-[420px] lg:max-w-[460px]',
+    width: 460,
+    height: 510,
     wrapClass:
       'inline-block overflow-hidden rounded-[1.75rem] rounded-tl-[2.25rem] bg-brand-950 shadow-[0_16px_40px_-20px_rgba(5,11,23,0.8)]',
   },
   header: {
-    imageClass: 'h-[4.25rem] w-[9.5rem] object-cover object-top sm:h-[4.75rem] sm:w-[10.5rem]',
-    width: 168,
-    height: 76,
+    imageClass:
+      'h-[5.5rem] w-[11rem] object-cover object-top sm:h-[6.75rem] sm:w-[13rem] md:h-[9.5rem] md:w-[15.5rem] lg:h-[11rem] lg:w-[17.5rem] xl:h-[12.5rem] xl:w-[19rem]',
+    width: 304,
+    height: 200,
     wrapClass:
-      'inline-flex overflow-hidden rounded-2xl rounded-tl-[1.35rem] bg-brand-950 shadow-[0_8px_24px_-14px_rgba(5,11,23,0.65)]',
+      'inline-flex overflow-hidden rounded-2xl rounded-tl-[1.35rem] bg-brand-950 shadow-[0_8px_24px_-14px_rgba(5,11,23,0.65)] lg:rounded-tl-[1.75rem]',
   },
   compact: {
-    imageClass: 'h-[3.75rem] w-[8.5rem] object-cover object-top',
-    width: 136,
-    height: 60,
+    imageClass: 'h-[5rem] w-[10rem] object-cover object-top sm:h-[5.75rem] sm:w-[11.5rem]',
+    width: 184,
+    height: 92,
     wrapClass:
       'inline-flex overflow-hidden rounded-xl rounded-tl-[1.1rem] bg-brand-950 shadow-sm',
   },
   footer: {
-    imageClass: 'h-auto w-full max-w-[280px] sm:max-w-[300px]',
-    width: 300,
-    height: 330,
+    imageClass: 'h-auto w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[400px]',
+    width: 400,
+    height: 440,
     wrapClass: 'inline-block',
   },
   mark: {
