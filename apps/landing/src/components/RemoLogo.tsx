@@ -16,18 +16,18 @@ const variantConfig = {
   },
   header: {
     imageClass:
-      'h-[5.5rem] w-[11rem] object-cover object-top sm:h-[6.75rem] sm:w-[13rem] md:h-[9.5rem] md:w-[15.5rem] lg:h-[11rem] lg:w-[17.5rem] xl:h-[12.5rem] xl:w-[19rem]',
-    width: 304,
-    height: 200,
+      'h-[4.25rem] w-[3.85rem] object-contain object-center sm:h-[4.75rem] sm:w-[4.3rem] md:h-[5.5rem] md:w-[5rem] lg:h-[6.25rem] lg:w-[5.65rem]',
+    width: 380,
+    height: 420,
     wrapClass:
-      'inline-flex overflow-hidden rounded-2xl rounded-tl-[1.35rem] bg-brand-950 shadow-[0_8px_24px_-14px_rgba(5,11,23,0.65)] lg:rounded-tl-[1.75rem]',
+      'inline-flex items-center justify-center rounded-xl rounded-tl-[1.2rem] bg-brand-950 px-2 py-1 shadow-[0_6px_18px_-12px_rgba(5,11,23,0.65)] sm:rounded-2xl sm:rounded-tl-[1.35rem] sm:px-2.5 sm:py-1.5',
   },
   compact: {
-    imageClass: 'h-[5rem] w-[10rem] object-cover object-top sm:h-[5.75rem] sm:w-[11.5rem]',
-    width: 184,
-    height: 92,
+    imageClass: 'h-[4rem] w-[3.6rem] object-contain object-center sm:h-[4.25rem] sm:w-[3.85rem]',
+    width: 380,
+    height: 420,
     wrapClass:
-      'inline-flex overflow-hidden rounded-xl rounded-tl-[1.1rem] bg-brand-950 shadow-sm',
+      'inline-flex items-center justify-center rounded-xl rounded-tl-[1.1rem] bg-brand-950 px-2 py-1 shadow-sm',
   },
   footer: {
     imageClass: 'h-auto w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[400px]',
