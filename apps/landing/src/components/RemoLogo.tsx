@@ -15,18 +15,18 @@ const variantConfig = {
       'inline-block overflow-hidden rounded-[1.75rem] rounded-tl-[2.25rem] bg-brand-950 shadow-[0_16px_40px_-20px_rgba(5,11,23,0.8)]',
   },
   header: {
-    imageClass: 'h-full w-full object-cover object-top',
+    imageClass: 'h-full w-auto max-h-full object-contain object-left object-top',
     width: 380,
     height: 420,
     wrapClass:
-      'relative inline-flex h-[5.75rem] w-[10.5rem] overflow-hidden rounded-xl rounded-tl-[1.25rem] bg-brand-950 shadow-[0_6px_18px_-12px_rgba(5,11,23,0.6)] sm:h-[6.25rem] sm:w-[11.5rem] md:h-[7rem] md:w-[12.75rem] lg:h-[7.75rem] lg:w-[14rem]',
+      'relative inline-flex h-[5.75rem] w-[12.5rem] items-start overflow-hidden rounded-2xl rounded-tl-[1.75rem] rounded-br-[1.35rem] bg-brand-950 px-3 shadow-[0_6px_18px_-12px_rgba(5,11,23,0.6)] sm:h-[6.25rem] sm:w-[14rem] sm:rounded-tl-[2rem] md:h-[7rem] md:w-[15.5rem] md:px-3.5 lg:h-[7.75rem] lg:w-[17.5rem] lg:rounded-3xl lg:rounded-tl-[2.25rem] lg:rounded-br-[1.75rem] lg:px-4',
   },
   compact: {
-    imageClass: 'h-full w-full object-cover object-top',
+    imageClass: 'h-full w-auto max-h-full object-contain object-left object-top',
     width: 380,
     height: 420,
     wrapClass:
-      'relative inline-flex h-[5.25rem] w-[9.75rem] overflow-hidden rounded-xl rounded-tl-[1.1rem] bg-brand-950 shadow-sm sm:h-[5.75rem] sm:w-[10.75rem]',
+      'relative inline-flex h-[5.25rem] w-[11.5rem] items-start overflow-hidden rounded-2xl rounded-tl-[1.5rem] rounded-br-[1.25rem] bg-brand-950 px-2.5 shadow-sm sm:h-[5.75rem] sm:w-[12.5rem] sm:px-3',
   },
   footer: {
     imageClass: 'h-auto w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[400px]',
