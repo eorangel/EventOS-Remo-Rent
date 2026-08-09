@@ -52,7 +52,7 @@ export default function LandingPage() {
     <>
       <Header />
 
-      <main>
+      <main className="min-w-0 overflow-x-hidden">
         {/* Hero */}
         <section className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-950 text-white">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(203,67,54,0.25),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.08),transparent_35%)]" />

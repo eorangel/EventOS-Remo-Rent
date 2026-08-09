@@ -25,8 +25,8 @@ export function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-md">
-        <div className="section-shell flex items-center justify-between gap-3 py-2.5 sm:gap-4 sm:py-3 md:py-3.5">
-          <Link href="/" className="min-w-0 shrink">
+        <div className="section-shell flex items-center justify-between gap-2 py-2.5 sm:gap-4 sm:py-3 md:py-3.5">
+          <Link href="/" className="min-w-0 max-w-[calc(100%-3rem)] shrink">
             <RemoLogo variant="header" priority />
           </Link>
 

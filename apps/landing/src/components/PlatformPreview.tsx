@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
 type PlatformPreviewProps = {
@@ -40,8 +40,8 @@ function BrowserChrome({ url }: { url: string }) {
         <span className="h-3 w-3 rounded-full bg-amber-400" />
         <span className="h-3 w-3 rounded-full bg-emerald-400" />
       </div>
-      <div className="mx-auto flex h-7 w-full max-w-md items-center justify-center rounded-md bg-slate-100 px-3 text-[11px] text-slate-500">
-        {url}
+      <div className="mx-auto flex h-7 min-w-0 flex-1 items-center justify-center rounded-md bg-slate-100 px-3 text-[10px] text-slate-500 sm:text-[11px]">
+        <span className="truncate">{url.replace('https://', '')}</span>
       </div>
     </div>
   );
@@ -411,15 +411,17 @@ export function PlatformPreview({
   className = '',
 }: PlatformPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.34);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = containerRef.current;
     if (!node) return;
 
     const updateScale = () => {
       const width = node.clientWidth;
-      setScale(Math.min(1, width / DESKTOP_WIDTH));
+      if (width > 0) {
+        setScale(Math.min(1, width / DESKTOP_WIDTH));
+      }
     };
 
     updateScale();
@@ -428,24 +430,29 @@ export function PlatformPreview({
     return () => observer.disconnect();
   }, []);
 
+  const scaledWidth = DESKTOP_WIDTH * scale;
   const scaledHeight = DESKTOP_HEIGHT * scale;
 
   return (
     <div
       ref={containerRef}
-      className={`w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-2xl shadow-slate-400/30 ring-1 ring-slate-900/5 ${className}`}
-      style={{ height: scaledHeight }}
+      className={`w-full max-w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-2xl shadow-slate-400/30 ring-1 ring-slate-900/5 ${className}`}
     >
       <div
-        style={{
-          width: DESKTOP_WIDTH,
-          height: DESKTOP_HEIGHT,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-        }}
+        className="relative max-w-full overflow-hidden"
+        style={{ width: scaledWidth, height: scaledHeight }}
       >
-        <BrowserChrome url={previewUrls[variant]} />
-        <PreviewBody variant={variant} />
+        <div
+          style={{
+            width: DESKTOP_WIDTH,
+            height: DESKTOP_HEIGHT,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+          }}
+        >
+          <BrowserChrome url={previewUrls[variant]} />
+          <PreviewBody variant={variant} />
+        </div>
       </div>
     </div>
   );
