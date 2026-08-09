@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="remo-r-top" x1="8" y1="4" x2="24" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A7F3EC" />
+      <stop offset="0.45" stop-color="#22D3BC" />
+      <stop offset="1" stop-color="#1D70B8" />
+    </linearGradient>
+    <linearGradient id="remo-r-leg" x1="18" y1="18" x2="26" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5EEAD4" />
+      <stop offset="1" stop-color="#14BBA6" />
+    </linearGradient>
+  </defs>
+  <path
+    d="M9 7.5V24.5"
+    stroke="url(#remo-r-top)"
+    stroke-width="4.2"
+    stroke-linecap="round"
+  />
+  <path
+    d="M9 7.5H17.8C21.9 7.5 25.2 10.8 25.2 14.9C25.2 19 21.9 22.3 17.8 22.3H14.2"
+    stroke="url(#remo-r-top)"
+    stroke-width="4.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M14.2 22.3L23.5 24.5"
+    stroke="url(#remo-r-leg)"
+    stroke-width="4.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
