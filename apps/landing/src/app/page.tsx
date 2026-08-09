@@ -1,4 +1,4 @@
-import { CrmPreview } from '@/components/CrmPreview';
+import { PlatformPreview } from '@/components/PlatformPreview';
 import { FaqAccordion } from '@/components/FaqAccordion';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
@@ -85,7 +85,7 @@ export default function LandingPage() {
                 </p>
               </div>
               <div className="lg:translate-y-2">
-                <CrmPreview />
+                <PlatformPreview variant="dashboard" />
               </div>
             </div>
           </div>
@@ -121,23 +121,23 @@ export default function LandingPage() {
           <div className="section-shell">
             <div className="grid items-center gap-14 lg:grid-cols-2">
               <div className="order-2 lg:order-1">
-                <CrmPreview />
+                <PlatformPreview variant="calendario" />
               </div>
               <div className="order-1 lg:order-2">
                 <p className="eyebrow">La solución</p>
                 <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-                  Un CRM diseñado para tu operación de eventos
+                  Un portal diseñado para tu operación de eventos
                 </h2>
                 <p className="mt-4 text-lg leading-relaxed text-slate-600">
-                  REMO centraliza clientes, eventos, inventario y cobros. Mismo estilo visual,
-                  misma lógica operativa — listo para tu equipo desde el día uno.
+                  REMO centraliza clientes, calendario, cotizaciones, catálogo y cobros. El mismo
+                  panel que usa tu equipo en producción — listo desde el día uno.
                 </p>
                 <ul className="mt-8 space-y-4">
                   {[
-                    'Vista unificada de eventos y clientes',
-                    'Inventario con disponibilidad por fecha',
-                    'Cobros con seguimiento claro de estados',
-                    'Calendario de entregas y recogidas',
+                    'Dashboard financiero con ingresos, cobranza y tendencias',
+                    'Calendario con entregas, eventos y cobros del día',
+                    'Órdenes de cobro con estados claros y seguimiento',
+                    'Catálogo e inventario con disponibilidad por fecha',
                   ].map((item) => (
                     <li key={item} className="flex gap-3 text-slate-700">
                       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
@@ -178,6 +178,17 @@ export default function LandingPage() {
                   )}
                 </div>
               ))}
+            </div>
+
+            <div className="mt-16">
+              <p className="text-center text-sm font-semibold uppercase tracking-wider text-brand-600">
+                Así se ve en producción
+              </p>
+              <div className="mt-8 grid gap-6 lg:grid-cols-3">
+                <PlatformPreview variant="dashboard" compact />
+                <PlatformPreview variant="calendario" compact />
+                <PlatformPreview variant="cobros" compact />
+              </div>
             </div>
           </div>
         </section>
