@@ -3,12 +3,11 @@ import { FaqAccordion } from '@/components/FaqAccordion';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import {
-  demoMailto,
   planComparison,
   pricingPlans,
   problems,
   productFeatures,
-  signupMailto,
+  registroUrl,
   siteConfig,
 } from '@/lib/config';
 
@@ -72,10 +71,10 @@ export default function LandingPage() {
                   panel profesional como el que ya usas en Remo&Rent.
                 </p>
                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-                  <a href={signupMailto()} className="btn-primary">
+                  <a href={registroUrl({ tipo: 'prueba' })} className="btn-primary">
                     Empieza gratis
                   </a>
-                  <a href={demoMailto()} className="btn-ghost-light">
+                  <a href={registroUrl({ tipo: 'demo' })} className="btn-ghost-light">
                     Solicitar demostración
                   </a>
                 </div>
@@ -191,8 +190,8 @@ export default function LandingPage() {
               title="Básico vs Pro"
               description="Elige el plan que mejor se adapte a tu operación."
             />
-            <div className="card mt-12 overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="card mt-12 overflow-x-auto">
+              <table className="w-full min-w-[480px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
                     <th className="px-6 py-4 text-left font-semibold text-slate-700">Función</th>
@@ -271,16 +270,6 @@ export default function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <a
-                    href={signupMailto(plan.name)}
-                    className={`mt-8 block rounded-xl py-3.5 text-center text-sm font-bold transition ${
-                      plan.highlighted
-                        ? 'bg-brand-600 text-white shadow-lg shadow-brand-600/25 hover:bg-brand-700'
-                        : 'border-2 border-slate-200 text-slate-800 hover:border-brand-300 hover:bg-brand-50'
-                    }`}
-                  >
-                    Comenzar
-                  </a>
                 </div>
               ))}
             </div>
@@ -308,10 +297,10 @@ export default function LandingPage() {
                 Prueba REMO 30 días gratis o agenda una demo con nuestro equipo.
               </p>
               <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <a href={signupMailto()} className="btn-primary">
+                <a href={registroUrl({ tipo: 'prueba' })} className="btn-primary">
                   Empieza gratis
                 </a>
-                <a href={demoMailto()} className="btn-ghost-light">
+                <a href={registroUrl({ tipo: 'demo' })} className="btn-ghost-light">
                   Solicitar demostración
                 </a>
               </div>

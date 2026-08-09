@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { clearToken, getStoredUser } from '@/lib/api';
 import { ROL_LABELS } from '@/lib/labels';
 import type { Usuario } from '@/lib/types';
+import { MobileSidebarLayout } from '@/components/MobileSidebarLayout';
 import { RemoLogo } from '@/components/RemoLogo';
 
 const mainNavItems = [
@@ -43,13 +44,13 @@ function NavLink({
         }`}
       >
         <span
-          className={`flex h-8 w-8 items-center justify-center rounded-lg text-base ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base ${
             active ? 'bg-brand-600 text-white' : 'bg-brand-950 text-brand-300'
           }`}
         >
           {item.icon}
         </span>
-        <div>
+        <div className="min-w-0">
           <span className="block">{item.label}</span>
           <span className="block text-[10px] font-normal uppercase tracking-wide text-brand-300/70">
             Empresa y perfil
@@ -85,9 +86,11 @@ export function ProveedorShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-brand-900 bg-brand-950">
-        <div className="border-b border-brand-900 px-5 py-5">
+    <MobileSidebarLayout
+      homeHref="/proveedor/dashboard"
+      mobileTitle={user?.proveedorNombre ?? 'Portal proveedor'}
+      sidebarHeader={
+        <div className="hidden border-b border-brand-900 px-5 py-5 lg:block">
           <Link href="/proveedor/dashboard">
             <RemoLogo variant="compact" />
           </Link>
@@ -95,13 +98,15 @@ export function ProveedorShell({ children }: { children: React.ReactNode }) {
             {user?.proveedorNombre ?? 'Portal proveedor'}
           </p>
         </div>
-
-        <nav className="flex-1 space-y-1 px-3 py-4">
+      }
+      sidebarNav={
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {mainNavItems.map((item) => (
             <NavLink key={item.href} item={item} active={pathname.startsWith(item.href)} />
           ))}
         </nav>
-
+      }
+      sidebarExtra={
         <div className="border-t border-brand-900 px-3 py-4">
           <NavLink
             item={configNavItem}
@@ -109,26 +114,26 @@ export function ProveedorShell({ children }: { children: React.ReactNode }) {
             variant="config"
           />
         </div>
-
+      }
+      sidebarFooter={
         <div className="border-t border-brand-900 px-4 py-4">
-          {user && (
+          {user ? (
             <div className="mb-3 rounded-lg bg-brand-900/80 px-3 py-2">
-              <p className="text-sm font-medium text-white">{user.nombre}</p>
+              <p className="truncate text-sm font-medium text-white">{user.nombre}</p>
               <p className="text-xs text-brand-300">{ROL_LABELS[user.rol]}</p>
             </div>
-          )}
+          ) : null}
           <button
+            type="button"
             onClick={logout}
             className="w-full rounded-lg border border-brand-800 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-brand-900"
           >
             Salir
           </button>
         </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 overflow-auto px-6 py-8 lg:px-10">{children}</main>
-      </div>
-    </div>
+      }
+    >
+      {children}
+    </MobileSidebarLayout>
   );
 }

@@ -10,7 +10,7 @@ export function Footer() {
       <div className="section-shell py-14">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <RemoLogo variant="compact" />
+            <RemoLogo variant="footer" />
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
               {siteConfig.description}
             </p>

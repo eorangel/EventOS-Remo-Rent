@@ -145,3 +145,15 @@ export function signupMailto(plan?: string) {
 export function demoMailto() {
   return `mailto:${siteConfig.contactEmail}?subject=${encodeURIComponent('Solicitud de demostración — REMO')}&body=${encodeURIComponent('Hola,\n\nMe gustaría agendar una demostración de REMO.\n\nEmpresa:\nNombre:\nTeléfono:\nHorario preferido:\n')}`;
 }
+
+/** Ruta de registro de interesados (sin pago en línea por ahora). */
+export function registroUrl(options?: {
+  tipo?: 'prueba' | 'demo';
+  plan?: 'basico' | 'pro';
+}) {
+  const params = new URLSearchParams();
+  if (options?.tipo) params.set('tipo', options.tipo);
+  if (options?.plan) params.set('plan', options.plan);
+  const query = params.toString();
+  return query ? `/registro?${query}` : '/registro';
+}

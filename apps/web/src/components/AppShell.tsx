@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { clearToken, getStoredUser } from '@/lib/api';
 import { ROL_LABELS } from '@/lib/labels';
 import type { Usuario } from '@/lib/types';
+import { MobileSidebarLayout } from '@/components/MobileSidebarLayout';
 import { RemoLogo } from '@/components/RemoLogo';
 
 const navItems = [
@@ -25,9 +26,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-brand-900 bg-brand-950">
-        <div className="border-b border-brand-900 px-5 py-5">
+    <MobileSidebarLayout
+      homeHref="/dashboard"
+      mobileTitle="REMO · Admin"
+      sidebarHeader={
+        <div className="hidden border-b border-brand-900 px-5 py-5 lg:block">
           <Link href="/dashboard">
             <RemoLogo variant="compact" />
           </Link>
@@ -35,8 +38,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Panel administrador
           </p>
         </div>
-
-        <nav className="flex-1 space-y-1 px-3 py-4">
+      }
+      sidebarNav={
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {navItems.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -55,26 +59,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-
+      }
+      sidebarFooter={
         <div className="border-t border-brand-900 px-4 py-4">
-          {user && (
+          {user ? (
             <div className="mb-3 rounded-lg bg-brand-900/80 px-3 py-2">
-              <p className="text-sm font-medium text-white">{user.nombre}</p>
+              <p className="truncate text-sm font-medium text-white">{user.nombre}</p>
               <p className="text-xs text-brand-300">{ROL_LABELS[user.rol]}</p>
             </div>
-          )}
+          ) : null}
           <button
+            type="button"
             onClick={logout}
             className="w-full rounded-lg border border-brand-800 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-brand-900"
           >
             Salir
           </button>
         </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 overflow-auto px-6 py-8 lg:px-10">{children}</main>
-      </div>
-    </div>
+      }
+    >
+      {children}
+    </MobileSidebarLayout>
   );
 }

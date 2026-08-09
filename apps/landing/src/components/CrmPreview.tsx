@@ -13,7 +13,7 @@ export function CrmPreview() {
         </div>
       </div>
 
-      <div className="flex min-h-[440px]">
+      <div className="flex min-h-[300px] sm:min-h-[440px]">
         <aside className="hidden w-52 shrink-0 border-r border-slate-200 bg-white sm:block">
           <div className="border-b border-slate-200 px-4 py-4">
             <div className="flex items-center gap-2">

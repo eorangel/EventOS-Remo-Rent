@@ -1,15 +1,37 @@
 import Image from 'next/image';
 
 type RemoLogoProps = {
-  variant?: 'full' | 'compact' | 'mark';
+  variant?: 'full' | 'header' | 'compact' | 'footer' | 'mark';
   className?: string;
   priority?: boolean;
 };
 
-const variantStyles = {
-  full: 'h-32 w-auto max-w-[min(100%,320px)]',
-  compact: 'h-14 w-auto max-w-[200px]',
-  mark: 'h-10 w-10 rounded-lg object-cover object-left',
+const variantConfig = {
+  full: {
+    className: 'h-36 w-auto max-w-[min(100%,380px)] sm:h-40',
+    width: 380,
+    height: 160,
+  },
+  header: {
+    className: 'h-16 w-auto max-w-[min(100%,260px)] sm:h-[4.5rem] sm:max-w-[300px]',
+    width: 300,
+    height: 72,
+  },
+  compact: {
+    className: 'h-14 w-auto max-w-[220px]',
+    width: 220,
+    height: 56,
+  },
+  footer: {
+    className: 'h-20 w-auto max-w-[280px] sm:h-24 sm:max-w-[320px]',
+    width: 320,
+    height: 96,
+  },
+  mark: {
+    className: 'h-10 w-10 rounded-lg object-cover object-left',
+    width: 40,
+    height: 40,
+  },
 } as const;
 
 export function RemoLogo({
@@ -17,13 +39,15 @@ export function RemoLogo({
   className = '',
   priority = false,
 }: RemoLogoProps) {
+  const config = variantConfig[variant];
+
   return (
     <Image
       src="/remo-logo.png"
       alt="REMO — Event Operating System"
-      width={variant === 'full' ? 320 : variant === 'compact' ? 200 : 40}
-      height={variant === 'full' ? 128 : variant === 'compact' ? 56 : 40}
-      className={`${variantStyles[variant]} ${className}`}
+      width={config.width}
+      height={config.height}
+      className={`${config.className} ${className}`}
       priority={priority}
     />
   );

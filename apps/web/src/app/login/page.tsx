@@ -37,8 +37,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-950 via-brand-900 to-brand-950 px-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-950 via-brand-900 to-brand-950 px-4 py-8">
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
         <div className="mb-8 flex justify-center">
           <RemoLogo variant="full" priority />
         </div>
