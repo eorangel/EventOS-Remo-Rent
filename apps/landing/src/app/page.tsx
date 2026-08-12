@@ -3,13 +3,20 @@ import { FaqAccordion } from '@/components/FaqAccordion';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 import {
-  planComparison,
+  planFeatures,
   pricingPlans,
   problems,
-  productFeatures,
   registroUrl,
   siteConfig,
 } from '@/lib/config';
+
+const basicPlanBullets = planFeatures
+  .filter((item) => item.basico)
+  .map((item) => item.feature);
+
+const proExclusiveBullets = planFeatures
+  .filter((item) => item.pro && !item.basico)
+  .map((item) => item.feature);
 
 function formatPrice(amount: number) {
   return new Intl.NumberFormat('es-MX', {
@@ -67,8 +74,7 @@ export default function LandingPage() {
                   {siteConfig.heroHeadline}
                 </h1>
                 <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-300">
-                  Deja Excel y WhatsApp atrás. Opera clientes, eventos, inventario y cobros desde un
-                  panel profesional como el que ya usas en Remo&Rent.
+                  Deja Excel y WhatsApp atrás. Opera clientes, eventos, inventario y cobros desde un panel profesional.
                 </p>
                 <div className="mt-10 flex flex-col gap-4 sm:flex-row">
                   <a href={registroUrl({ tipo: 'prueba' })} className="btn-primary">
@@ -81,7 +87,7 @@ export default function LandingPage() {
                 <p className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-400">
                   <span>✓ 30 días gratis</span>
                   <span>✓ Sin permanencia</span>
-                  <span>✓ Desde $300/mes</span>
+                  <span>✓ Desde $299/mes</span>
                 </p>
               </div>
               <div className="lg:translate-y-2">
@@ -161,17 +167,17 @@ export default function LandingPage() {
               description="Módulos pensados para el día a día de una empresa de renta y producción de eventos."
             />
             <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {productFeatures.map((feature, i) => (
+              {planFeatures.map((feature) => (
                 <div
-                  key={feature.title}
+                  key={feature.feature}
                   className="card group p-5 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md"
                 >
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-xl text-brand-600 ring-1 ring-brand-100 transition group-hover:bg-brand-100">
                     {feature.icon}
                   </div>
-                  <h3 className="mt-4 font-bold text-slate-900">{feature.title}</h3>
+                  <h3 className="mt-4 font-bold text-slate-900">{feature.feature}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">{feature.description}</p>
-                  {i === productFeatures.length - 1 && (
+                  {!feature.basico && feature.pro && (
                     <span className="mt-3 inline-block text-xs font-semibold text-brand-600">
                       Plan Pro →
                     </span>
@@ -210,7 +216,7 @@ export default function LandingPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {planComparison.map((row) => (
+                  {planFeatures.map((row) => (
                     <tr key={row.feature} className="transition hover:bg-slate-50/80">
                       <td className="px-6 py-4 font-medium text-slate-800">{row.feature}</td>
                       <td className="px-6 py-4 text-center text-lg">
@@ -271,10 +277,7 @@ export default function LandingPage() {
                     🎁 {plan.trialDays} días gratis
                   </p>
                   <ul className="mt-8 flex-1 space-y-2 text-sm text-slate-600">
-                    {(plan.id === 'pro'
-                      ? ['Pasarela Mercado Pago', 'Links de pago', 'Reportes y automatización']
-                      : ['CRM, clientes y calendario', 'Catálogo e inventario', 'Cobros manuales']
-                    ).map((f) => (
+                    {(plan.id === 'pro' ? proExclusiveBullets : basicPlanBullets).map((f) => (
                       <li key={f} className="flex gap-2">
                         <span className="text-brand-600">✓</span> {f}
                       </li>

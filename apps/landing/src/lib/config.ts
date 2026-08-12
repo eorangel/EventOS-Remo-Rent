@@ -38,67 +38,78 @@ export const problems = [
   },
 ] as const;
 
-export const productFeatures = [
+/** Funciones alineadas con la tabla Básico vs Pro: `planPro` = exclusivo del plan Pro. */
+export const planFeatures = [
   {
-    title: 'CRM',
-    description: 'Clientes, eventos y cotizaciones en un solo flujo.',
+    feature: 'CRM',
+    description: 'Eventos, cotizaciones y pipeline comercial en un solo flujo.',
     icon: '◫',
+    basico: true,
+    pro: true,
   },
   {
-    title: 'Calendario',
+    feature: 'Clientes',
+    description: 'Expediente completo e historial por cliente.',
+    icon: '👥',
+    basico: true,
+    pro: true,
+  },
+  {
+    feature: 'Calendario',
     description: 'Entregas, montajes y recogidas integrados a tu operación.',
     icon: '📅',
+    basico: true,
+    pro: true,
   },
   {
-    title: 'Catálogo',
+    feature: 'Catálogo',
     description: 'Productos con fotos, precios y categorías listos para cotizar.',
     icon: '▣',
+    basico: true,
+    pro: true,
   },
   {
-    title: 'Inventario',
-    description: 'Disponibilidad por fecha para evitar sobreventa.',
-    icon: '📦',
-  },
-  {
-    title: 'Cobros',
+    feature: 'Cobros manuales',
     description: 'Órdenes de cobro, estados y seguimiento de pagos.',
     icon: '◈',
+    basico: true,
+    pro: true,
   },
   {
-    title: 'Pasarela',
-    description: 'Links de pago con Mercado Pago en plan Pro.',
+    feature: 'Pasarela',
+    description: 'Integración con Mercado Pago para cobrar en línea.',
     icon: '💳',
+    basico: false,
+    pro: true,
   },
   {
-    title: 'Reportes',
-    description: 'Dashboard financiero y métricas de tu operación.',
-    icon: '📈',
+    feature: 'Links de pago',
+    description: 'Genera y comparte links de cobro con tus clientes.',
+    icon: '🔗',
+    basico: false,
+    pro: true,
   },
-] as const;
-
-export const planComparison = [
-  { feature: 'CRM', basico: true, pro: true },
-  { feature: 'Clientes', basico: true, pro: true },
-  { feature: 'Calendario', basico: true, pro: true },
-  { feature: 'Catálogo', basico: true, pro: true },
-  { feature: 'Cobros manuales', basico: true, pro: true },
-  { feature: 'Pasarela', basico: false, pro: true },
-  { feature: 'Links de pago', basico: false, pro: true },
-  { feature: 'Automatización', basico: false, pro: true },
+  {
+    feature: 'Automatización',
+    description: 'Recordatorios y flujos automáticos para cobros y operación.',
+    icon: '⚡',
+    basico: false,
+    pro: true,
+  },
 ] as const;
 
 export const pricingPlans = [
   {
     id: 'basico',
     name: 'Plan Básico',
-    price: 300,
+    price: 299,
     trialDays: 30,
     highlighted: false,
   },
   {
     id: 'pro',
     name: 'Plan Pro',
-    price: 700,
+    price: 699,
     trialDays: 30,
     highlighted: true,
   },
