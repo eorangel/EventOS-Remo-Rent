@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Badge, Button, Card } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
@@ -59,6 +60,15 @@ export function CotizacionProveedorForm({
   const [clienteProveedorId, setClienteProveedorId] = useState(
     initialData?.clienteProveedorId ?? initialClienteId ?? '',
   );
+  const [clienteMode, setClienteMode] = useState<'existing' | 'new'>(
+    initialClienteId || initialData?.clienteProveedorId ? 'existing' : 'existing',
+  );
+  const [nuevoCliente, setNuevoCliente] = useState({
+    nombre: '',
+    empresa: '',
+    email: '',
+    telefono: '',
+  });
   const [titulo, setTitulo] = useState(initialData?.titulo ?? '');
   const [estado, setEstado] = useState<EstadoCotizacion>(initialData?.estado ?? 'BORRADOR');
   const [fechaEvento, setFechaEvento] = useState(
@@ -184,7 +194,16 @@ export function CotizacionProveedorForm({
 
   async function guardar(enviar = false) {
     const items = payloadItems();
-    if (!clienteProveedorId) {
+    if (mode === 'create') {
+      if (clienteMode === 'existing' && !clienteProveedorId) {
+        alert('Selecciona un cliente');
+        return;
+      }
+      if (clienteMode === 'new' && !nuevoCliente.nombre.trim()) {
+        alert('Ingresa el nombre del cliente');
+        return;
+      }
+    } else if (!clienteProveedorId) {
       alert('Selecciona un cliente');
       return;
     }
@@ -215,7 +234,18 @@ export function CotizacionProveedorForm({
     setSaving(true);
     try {
       const body = {
-        ...(mode === 'create' ? { clienteProveedorId } : {}),
+        ...(mode === 'create'
+          ? clienteMode === 'existing'
+            ? { clienteProveedorId }
+            : {
+                cliente: {
+                  nombre: nuevoCliente.nombre.trim(),
+                  empresa: nuevoCliente.empresa.trim() || undefined,
+                  email: nuevoCliente.email.trim() || undefined,
+                  telefono: nuevoCliente.telefono.trim() || undefined,
+                },
+              }
+          : {}),
         titulo: titulo || undefined,
         estado: enviar ? 'ENVIADA' : estado,
         fechaEvento: fechaEvento ? new Date(fechaEvento).toISOString() : undefined,
@@ -234,7 +264,11 @@ export function CotizacionProveedorForm({
           method: 'POST',
           body: JSON.stringify(body),
         });
-        router.replace(`/proveedor/cotizaciones/${created.id}`);
+        if (created.ordenCobroId) {
+          router.replace(`/proveedor/cobros?cobro=${created.ordenCobroId}&desde=cotizacion`);
+        } else {
+          router.replace(`/proveedor/cotizaciones/${created.id}`);
+        }
       } else if (cotizacionId) {
         await apiFetch(`/portal/cotizaciones/${cotizacionId}`, {
           method: 'PATCH',
@@ -274,24 +308,118 @@ export function CotizacionProveedorForm({
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Cliente y evento</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block sm:col-span-2">
-              <span className="mb-1 block text-sm text-slate-600">Cliente</span>
-              <select
-                value={clienteProveedorId}
-                onChange={(e) => setClienteProveedorId(e.target.value)}
-                disabled={mode === 'edit'}
-                className="w-full text-sm"
-                required
-              >
-                <option value="">Seleccionar cliente</option>
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                    {c.empresa ? ` — ${c.empresa}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {mode === 'create' ? (
+              <>
+                <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => setClienteMode('existing')}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      clienteMode === 'existing'
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Cliente existente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClienteMode('new')}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      clienteMode === 'new'
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    + Nuevo cliente
+                  </button>
+                </div>
+                {clienteMode === 'existing' ? (
+                  <label className="block sm:col-span-2">
+                    <span className="mb-1 block text-sm text-slate-600">Cliente</span>
+                    <select
+                      value={clienteProveedorId}
+                      onChange={(e) => setClienteProveedorId(e.target.value)}
+                      className="w-full text-sm"
+                      required
+                    >
+                      <option value="">Seleccionar cliente</option>
+                      {clientes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                          {c.empresa ? ` — ${c.empresa}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <>
+                    <label className="block sm:col-span-2">
+                      <span className="mb-1 block text-sm text-slate-600">Nombre *</span>
+                      <input
+                        value={nuevoCliente.nombre}
+                        onChange={(e) =>
+                          setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })
+                        }
+                        placeholder="Nombre del cliente"
+                        className="w-full text-sm"
+                        required
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm text-slate-600">Empresa</span>
+                      <input
+                        value={nuevoCliente.empresa}
+                        onChange={(e) =>
+                          setNuevoCliente({ ...nuevoCliente, empresa: e.target.value })
+                        }
+                        className="w-full text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-sm text-slate-600">Teléfono</span>
+                      <input
+                        value={nuevoCliente.telefono}
+                        onChange={(e) =>
+                          setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })
+                        }
+                        className="w-full text-sm"
+                      />
+                    </label>
+                    <label className="block sm:col-span-2">
+                      <span className="mb-1 block text-sm text-slate-600">Correo</span>
+                      <input
+                        type="email"
+                        value={nuevoCliente.email}
+                        onChange={(e) =>
+                          setNuevoCliente({ ...nuevoCliente, email: e.target.value })
+                        }
+                        className="w-full text-sm"
+                      />
+                    </label>
+                  </>
+                )}
+              </>
+            ) : (
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-sm text-slate-600">Cliente</span>
+                <select
+                  value={clienteProveedorId}
+                  onChange={(e) => setClienteProveedorId(e.target.value)}
+                  disabled
+                  className="w-full text-sm"
+                  required
+                >
+                  <option value="">Seleccionar cliente</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                      {c.empresa ? ` — ${c.empresa}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="block sm:col-span-2">
               <span className="mb-1 block text-sm text-slate-600">Título / concepto</span>
               <input
@@ -444,6 +572,33 @@ export function CotizacionProveedorForm({
                 </Badge>
               </div>
             </div>
+          </Card>
+        )}
+
+        {perfil && (
+          <Card>
+            <h2 className="mb-3 text-lg font-semibold">Tu contacto en la cotización</h2>
+            <p className="text-sm text-slate-500">
+              Contacto para el cliente. Al generar el PDF también se incluyen tus políticas de renta y
+              cancelación si las tienes configuradas.
+            </p>
+            <div className="mt-3 space-y-1 text-sm text-slate-800">
+              <p className="font-medium">{perfil.proveedor.nombre}</p>
+              {perfil.proveedor.contacto && (
+                <p className="text-slate-600">{perfil.proveedor.contacto}</p>
+              )}
+              <p className="text-slate-600">
+                {[perfil.proveedor.email, perfil.proveedor.telefono, perfil.proveedor.sitioWeb]
+                  .filter(Boolean)
+                  .join(' · ') || 'Sin correo ni teléfono'}
+              </p>
+            </div>
+            <Link
+              href="/proveedor/configuracion"
+              className="mt-3 inline-block text-sm font-medium text-teal-700 hover:text-teal-900"
+            >
+              Editar en configuración →
+            </Link>
           </Card>
         )}
 

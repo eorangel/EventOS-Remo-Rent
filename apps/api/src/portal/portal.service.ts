@@ -37,7 +37,13 @@ import {
 import {
   buildCotizacionProveedorHtml,
   calcTotalesCotizacionProveedor,
+  pickFotoProductoUrl,
 } from './cotizacion-proveedor.utils';
+import {
+  buildPlantillaClientesExcel,
+  parseClientesExcel,
+  type FilaClienteExcel,
+} from './excel-clientes.parser';
 
 const DIAS_DEFAULT = [
   'Lunes',
@@ -591,6 +597,92 @@ export class PortalService {
     return this.prisma.clienteProveedor.create({
       data: { proveedorId, ...dto },
     });
+  }
+
+  getPlantillaExcelClientes(): Buffer {
+    return buildPlantillaClientesExcel();
+  }
+
+  previewImportClientesExcel(buffer: Buffer) {
+    const filas = parseClientesExcel(buffer);
+    return this.buildImportClientesResult(filas, true);
+  }
+
+  async importClientesExcel(user: AuthUser, buffer: Buffer) {
+    const proveedorId = requireProveedorUser(user);
+    const filas = parseClientesExcel(buffer);
+    const validas = filas.filter((f) => f.valido);
+
+    if (validas.length === 0) {
+      throw new BadRequestException('No hay filas válidas para importar. Revise la vista previa.');
+    }
+
+    const existentes = await this.prisma.clienteProveedor.findMany({
+      where: { proveedorId },
+      select: { id: true, nombre: true, email: true },
+    });
+
+    const porEmail = new Map<string, string>();
+    const porNombre = new Map<string, string>();
+    for (const c of existentes) {
+      if (c.email?.trim()) {
+        porEmail.set(c.email.trim().toLowerCase(), c.id);
+      }
+      porNombre.set(c.nombre.trim().toLowerCase(), c.id);
+    }
+
+    let creados = 0;
+    let actualizados = 0;
+
+    for (const fila of validas) {
+      const emailKey = fila.email?.trim().toLowerCase();
+      const nombreKey = fila.nombre.trim().toLowerCase();
+      const existenteId =
+        (emailKey && porEmail.get(emailKey)) || porNombre.get(nombreKey);
+
+      const data = {
+        nombre: fila.nombre.trim(),
+        empresa: fila.empresa?.trim() || null,
+        email: fila.email?.trim() || null,
+        telefono: fila.telefono?.trim() || null,
+        notas: fila.notas?.trim() || null,
+        activo: true,
+      };
+
+      if (existenteId) {
+        await this.prisma.clienteProveedor.update({
+          where: { id: existenteId },
+          data,
+        });
+        actualizados += 1;
+      } else {
+        const created = await this.prisma.clienteProveedor.create({
+          data: { proveedorId, ...data },
+        });
+        if (created.email) {
+          porEmail.set(created.email.trim().toLowerCase(), created.id);
+        }
+        porNombre.set(created.nombre.trim().toLowerCase(), created.id);
+        creados += 1;
+      }
+    }
+
+    return {
+      ...this.buildImportClientesResult(filas, false),
+      creados,
+      actualizados,
+    };
+  }
+
+  private buildImportClientesResult(filas: FilaClienteExcel[], vistaPrevia: boolean) {
+    const validas = filas.filter((f) => f.valido).length;
+    return {
+      vistaPrevia,
+      totalFilas: filas.length,
+      validas,
+      invalidas: filas.length - validas,
+      filas,
+    };
   }
 
   async updateCliente(user: AuthUser, id: string, dto: UpdateClienteProveedorDto) {
@@ -1369,9 +1461,39 @@ export class PortalService {
 
   private async nextFolio(proveedorId: string) {
     const count = await this.prisma.ordenCobro.count({ where: { proveedorId } });
-    const seq = String(count + 1).padStart(4, '0');
+    return this.buildCobroFolio(count);
+  }
+
+  private buildCobroFolio(existingCount: number) {
+    const seq = String(existingCount + 1).padStart(4, '0');
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     return `COB-${date}-${seq}`;
+  }
+
+  private async createCobroDesdeCotizacion(
+    db: Pick<PrismaService, 'ordenCobro'>,
+    proveedorId: string,
+    input: {
+      clienteProveedorId: string;
+      folioCotizacion: string;
+      titulo: string;
+      total: number;
+      validoHasta?: Date | null;
+    },
+  ) {
+    const count = await db.ordenCobro.count({ where: { proveedorId } });
+    return db.ordenCobro.create({
+      data: {
+        proveedorId,
+        clienteProveedorId: input.clienteProveedorId,
+        folio: this.buildCobroFolio(count),
+        concepto: input.titulo,
+        monto: input.total,
+        fechaVencimiento: input.validoHasta ?? undefined,
+        notas: `Generado desde cotización ${input.folioCotizacion}`,
+        estado: EstadoOrdenCobro.BORRADOR,
+      },
+    });
   }
 
   private async ensureCliente(proveedorId: string, id: string) {
@@ -1484,7 +1606,17 @@ export class PortalService {
 
   async createCotizacion(user: AuthUser, dto: CreateCotizacionProveedorDto) {
     const proveedorId = requireProveedorUser(user);
-    const cliente = await this.ensureCliente(proveedorId, dto.clienteProveedorId);
+    const hasExistingCliente = Boolean(dto.clienteProveedorId?.trim());
+    const hasNewCliente = Boolean(dto.cliente);
+
+    if (hasExistingCliente === hasNewCliente) {
+      throw new BadRequestException(
+        hasExistingCliente && hasNewCliente
+          ? 'Indica un cliente existente o datos de uno nuevo, no ambos'
+          : 'Selecciona un cliente o registra uno nuevo',
+      );
+    }
+
     if (!dto.items?.length) {
       throw new BadRequestException('Agrega al menos un producto a la cotización');
     }
@@ -1507,10 +1639,6 @@ export class PortalService {
     );
 
     const folio = await this.nextCotizacionFolio(proveedorId);
-    const titulo =
-      dto.titulo?.trim() ||
-      `Cotización — ${cliente.nombre}${dto.fechaEvento ? ` (${dto.fechaEvento.slice(0, 10)})` : ''}`;
-
     const estadoFinal = dto.estado ?? EstadoCotizacion.BORRADOR;
     const fechaEventoParsed = dto.fechaEvento ? parseFechaEventoDia(dto.fechaEvento) : null;
     await this.validarInventarioCotizacion(
@@ -1520,34 +1648,83 @@ export class PortalService {
       estadoFinal,
     );
 
+    const cotizacionData = {
+      proveedorId,
+      folio,
+      estado: estadoFinal,
+      fechaEvento: fechaEventoParsed ?? undefined,
+      lugarEntrega: dto.lugarEntrega,
+      costoEnvio,
+      descuentoPorcentaje,
+      descuentoMonto: totales.descuentoMonto,
+      ivaPorcentaje,
+      ivaIncluido,
+      subtotal: totales.subtotal,
+      montoIva: totales.montoIva,
+      total: totales.total,
+      notas: dto.notas,
+      validoHasta: dto.validoHasta ? new Date(dto.validoHasta) : undefined,
+      items: {
+        create: itemsData.map((item) => ({
+          productoProveedorId: item.productoProveedorId,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precioUnitario: item.precioUnitario,
+          subtotal: item.subtotal,
+        })),
+      },
+    };
+
+    if (dto.cliente) {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const nuevoCliente = await tx.clienteProveedor.create({
+          data: {
+            proveedorId,
+            nombre: dto.cliente!.nombre.trim(),
+            empresa: dto.cliente!.empresa?.trim() || undefined,
+            email: dto.cliente!.email?.trim() || undefined,
+            telefono: dto.cliente!.telefono?.trim() || undefined,
+            notas: dto.cliente!.notas?.trim() || undefined,
+          },
+        });
+        const titulo =
+          dto.titulo?.trim() ||
+          `Cotización — ${nuevoCliente.nombre}${dto.fechaEvento ? ` (${dto.fechaEvento.slice(0, 10)})` : ''}`;
+
+        return tx.cotizacionProveedor.create({
+          data: {
+            ...cotizacionData,
+            clienteProveedorId: nuevoCliente.id,
+            titulo,
+          },
+          include: {
+            clienteProveedor: true,
+            items: { include: { productoProveedor: { select: { id: true, nombre: true } } } },
+          },
+        });
+      });
+
+      const cobro = await this.createCobroDesdeCotizacion(this.prisma, proveedorId, {
+        clienteProveedorId: created.clienteProveedorId,
+        folioCotizacion: created.folio,
+        titulo: created.titulo ?? created.folio,
+        total: totales.total,
+        validoHasta: created.validoHasta,
+      });
+
+      return { ...this.mapCotizacion(created), ordenCobroId: cobro.id };
+    }
+
+    const cliente = await this.ensureCliente(proveedorId, dto.clienteProveedorId!);
+    const titulo =
+      dto.titulo?.trim() ||
+      `Cotización — ${cliente.nombre}${dto.fechaEvento ? ` (${dto.fechaEvento.slice(0, 10)})` : ''}`;
+
     const created = await this.prisma.cotizacionProveedor.create({
       data: {
-        proveedorId,
-        clienteProveedorId: dto.clienteProveedorId,
-        folio,
+        ...cotizacionData,
+        clienteProveedorId: dto.clienteProveedorId!,
         titulo,
-        estado: estadoFinal,
-        fechaEvento: fechaEventoParsed ?? undefined,
-        lugarEntrega: dto.lugarEntrega,
-        costoEnvio,
-        descuentoPorcentaje,
-        descuentoMonto: totales.descuentoMonto,
-        ivaPorcentaje,
-        ivaIncluido,
-        subtotal: totales.subtotal,
-        montoIva: totales.montoIva,
-        total: totales.total,
-        notas: dto.notas,
-        validoHasta: dto.validoHasta ? new Date(dto.validoHasta) : undefined,
-        items: {
-          create: itemsData.map((item) => ({
-            productoProveedorId: item.productoProveedorId,
-            descripcion: item.descripcion,
-            cantidad: item.cantidad,
-            precioUnitario: item.precioUnitario,
-            subtotal: item.subtotal,
-          })),
-        },
       },
       include: {
         clienteProveedor: true,
@@ -1555,7 +1732,15 @@ export class PortalService {
       },
     });
 
-    return this.mapCotizacion(created);
+    const cobro = await this.createCobroDesdeCotizacion(this.prisma, proveedorId, {
+      clienteProveedorId: created.clienteProveedorId,
+      folioCotizacion: created.folio,
+      titulo: created.titulo ?? titulo,
+      total: totales.total,
+      validoHasta: created.validoHasta,
+    });
+
+    return { ...this.mapCotizacion(created), ordenCobroId: cobro.id };
   }
 
   async updateCotizacion(user: AuthUser, id: string, dto: UpdateCotizacionProveedorDto) {
@@ -1671,7 +1856,14 @@ export class PortalService {
       where: { id, proveedorId },
       include: {
         clienteProveedor: true,
-        items: { orderBy: { id: 'asc' } },
+        items: {
+          orderBy: { id: 'asc' },
+          include: {
+            productoProveedor: {
+              include: { fotos: { orderBy: { orden: 'asc' } } },
+            },
+          },
+        },
         proveedor: { include: { perfilEmpresa: true } },
       },
     });
@@ -1694,14 +1886,27 @@ export class PortalService {
       subtotal: toNumber(cotizacion.subtotal),
       montoIva: toNumber(cotizacion.montoIva),
       total: toNumber(cotizacion.total),
-      proveedor: cotizacion.proveedor,
-      perfil: cotizacion.proveedor.perfilEmpresa,
+      proveedor: {
+        nombre: cotizacion.proveedor.nombre,
+        contacto: cotizacion.proveedor.contacto,
+        email: cotizacion.proveedor.email,
+        telefono: cotizacion.proveedor.telefono,
+        sitioWeb: cotizacion.proveedor.sitioWeb,
+      },
+      perfil: cotizacion.proveedor.perfilEmpresa
+        ? {
+            logoUrl: cotizacion.proveedor.perfilEmpresa.logoUrl,
+            politicasRenta: cotizacion.proveedor.perfilEmpresa.politicasRenta,
+            condicionesCancelacion: cotizacion.proveedor.perfilEmpresa.condicionesCancelacion,
+          }
+        : null,
       cliente: cotizacion.clienteProveedor,
       items: cotizacion.items.map((i) => ({
         descripcion: i.descripcion,
         cantidad: i.cantidad,
         precioUnitario: toNumber(i.precioUnitario),
         subtotal: toNumber(i.subtotal),
+        fotoUrl: pickFotoProductoUrl(i.productoProveedor?.fotos),
       })),
     });
 

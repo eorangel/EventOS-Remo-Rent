@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EstadoCotizacion } from '@prisma/client';
+import { CreateClienteProveedorDto } from './portal.dto';
 
 export class CotizacionProveedorItemDto {
   @IsOptional()
@@ -32,8 +33,14 @@ export class CotizacionProveedorItemDto {
 }
 
 export class CreateCotizacionProveedorDto {
+  @IsOptional()
   @IsString()
-  clienteProveedorId!: string;
+  clienteProveedorId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateClienteProveedorDto)
+  cliente?: CreateClienteProveedorDto;
 
   @IsOptional()
   @IsString()

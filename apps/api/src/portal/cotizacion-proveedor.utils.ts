@@ -74,13 +74,10 @@ export function buildCotizacionProveedorHtml(input: {
   total: number;
   proveedor: {
     nombre: string;
-    razonSocial?: string | null;
-    rfc?: string | null;
+    contacto?: string | null;
     email?: string | null;
     telefono?: string | null;
-    direccion?: string | null;
-    ciudad?: string | null;
-    entidadFederativa?: string | null;
+    sitioWeb?: string | null;
   };
   perfil?: {
     logoUrl?: string | null;
@@ -98,15 +95,32 @@ export function buildCotizacionProveedorHtml(input: {
     cantidad: number;
     precioUnitario: number;
     subtotal: number;
+    fotoUrl?: string | null;
   }>;
 }) {
   const logo = input.perfil?.logoUrl
     ? `<img src="${input.perfil.logoUrl}" alt="Logo" style="height:56px;object-fit:contain"/>`
     : '';
+  const contactoProveedor = [
+    input.proveedor.email,
+    input.proveedor.telefono,
+    input.proveedor.sitioWeb,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const filas = input.items
     .map(
       (i) => `<tr>
-        <td>${escapeHtml(i.descripcion)}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            ${
+              i.fotoUrl
+                ? `<img src="${escapeAttr(i.fotoUrl)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0"/>`
+                : ''
+            }
+            <span>${escapeHtml(i.descripcion)}</span>
+          </div>
+        </td>
         <td style="text-align:center">${i.cantidad}</td>
         <td style="text-align:right">${formatMoneyMx(i.precioUnitario, input.moneda)}</td>
         <td style="text-align:right">${formatMoneyMx(i.subtotal, input.moneda)}</td>
@@ -116,8 +130,7 @@ export function buildCotizacionProveedorHtml(input: {
 
   const body = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:2rem">
-      <div>${logo}<h1 style="margin:0.5rem 0 0">${escapeHtml(input.proveedor.nombre)}</h1>
-      <p class="meta">${escapeHtml(input.proveedor.razonSocial ?? '')}</p></div>
+      <div>${logo}<h1 style="margin:0.5rem 0 0">${escapeHtml(input.proveedor.nombre)}</h1></div>
       <div style="text-align:right">
         <p style="font-size:1.25rem;font-weight:700;margin:0">COTIZACIÓN</p>
         <p class="meta">${escapeHtml(input.folio)}</p>
@@ -127,10 +140,9 @@ export function buildCotizacionProveedorHtml(input: {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem">
       <div>
-        <p style="font-weight:600;margin-bottom:0.25rem">Proveedor</p>
-        <p style="margin:0;font-size:0.875rem">${[input.proveedor.direccion, input.proveedor.ciudad, input.proveedor.entidadFederativa].filter(Boolean).join(', ')}</p>
-        <p style="margin:0;font-size:0.875rem">${[input.proveedor.email, input.proveedor.telefono].filter(Boolean).join(' · ')}</p>
-        ${input.proveedor.rfc ? `<p style="margin:0;font-size:0.875rem">RFC: ${escapeHtml(input.proveedor.rfc)}</p>` : ''}
+        <p style="font-weight:600;margin-bottom:0.25rem">Contacto</p>
+        ${input.proveedor.contacto ? `<p style="margin:0;font-size:0.875rem">${escapeHtml(input.proveedor.contacto)}</p>` : ''}
+        ${contactoProveedor ? `<p style="margin:0;font-size:0.875rem">${escapeHtml(contactoProveedor)}</p>` : ''}
       </div>
       <div>
         <p style="font-weight:600;margin-bottom:0.25rem">Cliente</p>
@@ -182,4 +194,16 @@ function escapeHtml(value: string) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function escapeAttr(value: string) {
+  return escapeHtml(value);
+}
+
+export function pickFotoProductoUrl(
+  fotos: Array<{ url: string; esPrincipal: boolean; orden: number }> | undefined | null,
+): string | undefined {
+  if (!fotos?.length) return undefined;
+  const principal = fotos.find((f) => f.esPrincipal);
+  return principal?.url ?? fotos[0]?.url;
 }

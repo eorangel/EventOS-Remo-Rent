@@ -25,14 +25,17 @@ export default function ProveedorCatalogoPage() {
   const [importPreview, setImportPreview] = useState<ResultadoImportacionProductos | null>(null);
   const [importResult, setImportResult] = useState<ResultadoImportacionProductos | null>(null);
   const [importando, setImportando] = useState(false);
-  const [form, setForm] = useState({
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const formInicial = {
     nombre: '',
     categoria: 'Sillas',
     cantidadDisponible: '',
     precioReferencia: '',
     descripcion: '',
     unidadMedida: 'PIEZA' as UnidadMedidaProducto,
-  });
+    activo: true,
+  };
+  const [form, setForm] = useState(formInicial);
 
   async function cargar() {
     if (fechaConsulta) {
@@ -57,33 +60,55 @@ export default function ProveedorCatalogoPage() {
     cargar().finally(() => setLoading(false));
   }, [fechaConsulta]);
 
-  async function agregarProducto(e: React.FormEvent) {
+  async function guardarProducto(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      await apiFetch('/portal/productos', {
-        method: 'POST',
-        body: JSON.stringify({
-          nombre: form.nombre,
-          categoria: form.categoria,
-          cantidadDisponible: Number(form.cantidadDisponible) || 0,
-          precioReferencia: Number(form.precioReferencia) || 0,
-          descripcion: form.descripcion || undefined,
-          unidadMedida: form.unidadMedida,
-        }),
-      });
-      setForm({
-        nombre: '',
-        categoria: 'Sillas',
-        cantidadDisponible: '',
-        precioReferencia: '',
-        descripcion: '',
-        unidadMedida: 'PIEZA',
-      });
+      const payload = {
+        nombre: form.nombre,
+        categoria: form.categoria,
+        cantidadDisponible: Number(form.cantidadDisponible) || 0,
+        precioReferencia: Number(form.precioReferencia) || 0,
+        descripcion: form.descripcion || undefined,
+        unidadMedida: form.unidadMedida,
+        activo: form.activo,
+      };
+
+      if (editandoId) {
+        await apiFetch(`/portal/productos/${editandoId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+        cancelarEdicion();
+      } else {
+        await apiFetch('/portal/productos', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        setForm(formInicial);
+      }
       await cargar();
     } finally {
       setSaving(false);
     }
+  }
+
+  function iniciarEdicion(producto: ProductoProveedorInventario) {
+    setEditandoId(producto.id);
+    setForm({
+      nombre: producto.nombre,
+      categoria: producto.categoria ?? 'Sillas',
+      cantidadDisponible: String(producto.cantidadTotal ?? producto.cantidadDisponible),
+      precioReferencia: String(producto.precioReferencia ?? ''),
+      descripcion: producto.descripcion ?? '',
+      unidadMedida: producto.unidadMedida ?? 'PIEZA',
+      activo: producto.activo,
+    });
+  }
+
+  function cancelarEdicion() {
+    setEditandoId(null);
+    setForm(formInicial);
   }
 
   async function descargarPlantilla() {
@@ -183,8 +208,10 @@ export default function ProveedorCatalogoPage() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-1">
-            <h2 className="mb-4 text-lg font-semibold">Agregar producto</h2>
-            <form onSubmit={agregarProducto} className="space-y-3">
+            <h2 className="mb-4 text-lg font-semibold">
+              {editandoId ? 'Editar producto' : 'Agregar producto'}
+            </h2>
+            <form onSubmit={guardarProducto} className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">Nombre *</label>
                 <input
@@ -246,9 +273,33 @@ export default function ProveedorCatalogoPage() {
                   ))}
                 </select>
               </div>
-              <Button type="submit" disabled={saving}>
-                {saving ? 'Guardando...' : 'Agregar'}
-              </Button>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">Descripción</label>
+                <textarea
+                  value={form.descripcion}
+                  onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                  rows={2}
+                  className="w-full text-sm"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={form.activo}
+                  onChange={(e) => setForm({ ...form, activo: e.target.checked })}
+                />
+                Activo en catálogo
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Guardando...' : editandoId ? 'Guardar cambios' : 'Agregar'}
+                </Button>
+                {editandoId && (
+                  <Button type="button" variant="secondary" onClick={cancelarEdicion} disabled={saving}>
+                    Cancelar
+                  </Button>
+                )}
+              </div>
             </form>
           </Card>
 
@@ -280,10 +331,24 @@ export default function ProveedorCatalogoPage() {
             ) : (
               <div className="space-y-3">
                 {productos.map((p) => (
-                  <div key={p.id} className="rounded-xl border border-slate-200 px-4 py-3">
+                  <div
+                    key={p.id}
+                    className={`rounded-xl border px-4 py-3 ${
+                      editandoId === p.id
+                        ? 'border-teal-400 bg-teal-50/40'
+                        : 'border-slate-200'
+                    }`}
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-slate-900">{p.nombre}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-slate-900">{p.nombre}</p>
+                          {!p.activo && (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                              Inactivo
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-slate-500">
                           {p.categoria ?? 'Sin categoría'} ·{' '}
                           {fechaConsulta ? (
@@ -302,10 +367,23 @@ export default function ProveedorCatalogoPage() {
                             </>
                           )}
                         </p>
+                        {p.descripcion && (
+                          <p className="mt-1 line-clamp-2 text-sm text-slate-600">{p.descripcion}</p>
+                        )}
                       </div>
-                      <span className="font-semibold text-slate-900">
-                        {formatMoney(p.precioReferencia)}
-                      </span>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <span className="font-semibold text-slate-900">
+                          {formatMoney(p.precioReferencia)}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="text-xs"
+                          onClick={() => iniciarEdicion(p)}
+                        >
+                          Editar
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}

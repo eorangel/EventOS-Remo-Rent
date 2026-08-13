@@ -208,6 +208,8 @@ export type CotizacionProveedor = {
   updatedAt: string;
   clienteProveedor?: ClienteProveedor;
   items?: CotizacionProveedorItem[];
+  /** Presente al crear cotización — orden de cobro generada automáticamente */
+  ordenCobroId?: string;
 };
 
 export type CotizacionPdfResponse = {
@@ -526,6 +528,27 @@ export type ResultadoImportacionProductos = {
   creados?: number;
   actualizados?: number;
   filas: FilaImportacionProducto[];
+};
+
+export type FilaImportacionCliente = {
+  fila: number;
+  nombre: string;
+  empresa?: string;
+  email?: string;
+  telefono?: string;
+  notas?: string;
+  errores: string[];
+  valido: boolean;
+};
+
+export type ResultadoImportacionClientes = {
+  vistaPrevia: boolean;
+  totalFilas: number;
+  validas: number;
+  invalidas: number;
+  creados?: number;
+  actualizados?: number;
+  filas: FilaImportacionCliente[];
 };
 
 export type MetricasCapturaProveedores = {

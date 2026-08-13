@@ -72,6 +72,47 @@ export class PortalController {
     return this.portalService.createCliente(getAuthUser(req), dto);
   }
 
+  @Get('clientes/plantilla-excel')
+  descargarPlantillaClientes(@Res({ passthrough: false }) res: Response) {
+    const buffer = this.portalService.getPlantillaExcelClientes();
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="plantilla-clientes-proveedor.xlsx"',
+    });
+    res.send(buffer);
+  }
+
+  @Post('clientes/importar-excel')
+  @UseInterceptors(
+    FileInterceptor('archivo', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  importarClientesExcel(
+    @Req() req: Request,
+    @UploadedFile() file: Express.Multer.File,
+    @Query('vistaPrevia') vistaPrevia?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Debe enviar un archivo Excel (.xlsx o .xls)');
+    }
+
+    const nombre = file.originalname?.toLowerCase() ?? '';
+    if (!nombre.endsWith('.xlsx') && !nombre.endsWith('.xls') && !nombre.endsWith('.csv')) {
+      throw new BadRequestException('Formato no soportado. Use .xlsx, .xls o .csv');
+    }
+
+    try {
+      if (vistaPrevia === 'true') {
+        return this.portalService.previewImportClientesExcel(file.buffer);
+      }
+      return this.portalService.importClientesExcel(getAuthUser(req), file.buffer);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al procesar el archivo';
+      throw new BadRequestException(message);
+    }
+  }
+
   @Get('clientes/:id/historial')
   clienteHistorial(@Req() req: Request, @Param('id') id: string) {
     return this.portalService.getClienteHistorial(getAuthUser(req), id);
