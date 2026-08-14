@@ -665,14 +665,22 @@ export default function ProveedorExpedientePage() {
             <div className="space-y-6">
               {perfilLoading ? (
                 <p className="text-sm text-slate-500">Cargando perfil de plataforma...</p>
-              ) : !perfilPlataforma ? (
+              ) : !perfilPlataforma?.perfil ? (
                 <Card>
                   <p className="text-sm text-slate-500">
-                    Este proveedor aún no ha configurado su perfil en el portal.
+                    No se pudo cargar el perfil de plataforma. Intenta de nuevo en unos momentos.
                   </p>
                 </Card>
               ) : (
                 <>
+                  {!perfilPlataforma.perfil.updatedAt && (
+                    <Card className="border-amber-200 bg-amber-50">
+                      <p className="text-sm text-amber-900">
+                        Este proveedor aún no ha guardado su perfil en el portal. Los datos que ves
+                        son los registrados al dar de alta la empresa o valores vacíos por defecto.
+                      </p>
+                    </Card>
+                  )}
                   <Card>
                     <div className="flex flex-wrap items-center gap-4">
                       {perfilPlataforma.perfil.logoUrl ? (

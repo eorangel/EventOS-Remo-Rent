@@ -9,11 +9,37 @@ export const siteConfig = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
   contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'contacto@remorent.mx',
   social: {
-    instagram: process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM ?? '#',
-    facebook: process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK ?? '#',
-    linkedin: process.env.NEXT_PUBLIC_SOCIAL_LINKEDIN ?? '#',
+    instagram:
+      process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM ?? 'https://www.instagram.com/remorent',
+    facebook:
+      process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK ?? 'https://www.facebook.com/remorent',
+    linkedin:
+      process.env.NEXT_PUBLIC_SOCIAL_LINKEDIN ?? 'https://www.linkedin.com/company/remorent',
+    whatsapp: process.env.NEXT_PUBLIC_SOCIAL_WHATSAPP ?? '',
+    tiktok: process.env.NEXT_PUBLIC_SOCIAL_TIKTOK ?? '',
   },
 };
+
+export type SocialLinkKey = keyof typeof siteConfig.social;
+
+export const socialLinkLabels: Record<SocialLinkKey, string> = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  linkedin: 'LinkedIn',
+  whatsapp: 'WhatsApp',
+  tiktok: 'TikTok',
+};
+
+/** Redes con URL configurada (omite placeholders vacíos o `#`). */
+export function getSocialLinks() {
+  return (Object.keys(siteConfig.social) as SocialLinkKey[])
+    .map((key) => ({
+      key,
+      label: socialLinkLabels[key],
+      href: siteConfig.social[key].trim(),
+    }))
+    .filter((link) => link.href && link.href !== '#');
+}
 
 export const problems = [
   {

@@ -46,6 +46,16 @@ function calcularCompletitud(proveedor: {
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
 
+const DIAS_DEFAULT = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+];
+
 const ENTIDAD_COORDS: Record<string, { lat: number; lng: number }> = {
   Aguascalientes: { lat: 21.8853, lng: -102.2916 },
   'Baja California': { lat: 30.8406, lng: -115.2838 },
@@ -577,7 +587,30 @@ export class ProveedoresService {
     if (!proveedor) throw new NotFoundException('Proveedor no encontrado');
 
     const perfil = proveedor.perfilEmpresa;
-    const redes = (perfil?.redesSociales ?? {}) as Record<string, string>;
+    const horarioDefault = {
+      dias: DIAS_DEFAULT.map((dia) => ({
+        dia,
+        abre: '09:00',
+        cierra: '18:00',
+        cerrado: dia === 'Domingo',
+      })),
+    };
+    const horario =
+      perfil?.horario && typeof perfil.horario === 'object'
+        ? perfil.horario
+        : horarioDefault;
+    const redesSociales =
+      perfil?.redesSociales && typeof perfil.redesSociales === 'object'
+        ? perfil.redesSociales
+        : {
+            facebook: '',
+            instagram: '',
+            whatsapp: proveedor.telefono ?? '',
+            tiktok: '',
+            linkedin: '',
+            sitioWeb: proveedor.sitioWeb ?? '',
+          };
+    const redes = (redesSociales ?? {}) as Record<string, string>;
 
     const checks = [
       !!proveedor.razonSocial,
@@ -604,20 +637,18 @@ export class ProveedoresService {
         entidadFederativa: proveedor.entidadFederativa,
         sitioWeb: proveedor.sitioWeb,
       },
-      perfil: perfil
-        ? {
-            logoUrl: perfil.logoUrl,
-            regimenFiscal: perfil.regimenFiscal,
-            codigoPostal: perfil.codigoPostal,
-            horario: perfil.horario,
-            redesSociales: perfil.redesSociales,
-            politicasRenta: perfil.politicasRenta,
-            condicionesCancelacion: perfil.condicionesCancelacion,
-            ivaIncluido: perfil.ivaIncluido,
-            moneda: perfil.moneda,
-            updatedAt: perfil.updatedAt,
-          }
-        : null,
+      perfil: {
+        logoUrl: perfil?.logoUrl ?? null,
+        regimenFiscal: perfil?.regimenFiscal ?? null,
+        codigoPostal: perfil?.codigoPostal ?? null,
+        horario,
+        redesSociales,
+        politicasRenta: perfil?.politicasRenta ?? null,
+        condicionesCancelacion: perfil?.condicionesCancelacion ?? null,
+        ivaIncluido: perfil?.ivaIncluido ?? false,
+        moneda: perfil?.moneda ?? 'MXN',
+        updatedAt: perfil?.updatedAt ?? null,
+      },
       completitudPerfilEmpresa: Math.round((checks.filter(Boolean).length / checks.length) * 100),
     };
   }
