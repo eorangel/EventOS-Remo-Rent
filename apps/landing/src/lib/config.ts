@@ -10,9 +10,11 @@ export const siteConfig = {
   contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'contacto@remorent.mx',
   social: {
     instagram:
-      process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM ?? 'https://www.instagram.com/remorent',
+      process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM ??
+      'https://www.instagram.com/remo.conecta?igsh=OXkzZTN0eWdncjY4',
     facebook:
-      process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK ?? 'https://www.facebook.com/remorent',
+      process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK ??
+      'https://www.facebook.com/share/18672raJjE/?mibextid=wwXIfr',
     linkedin:
       process.env.NEXT_PUBLIC_SOCIAL_LINKEDIN ?? 'https://www.linkedin.com/company/remorent',
     whatsapp: process.env.NEXT_PUBLIC_SOCIAL_WHATSAPP ?? '',
