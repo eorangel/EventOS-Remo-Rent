@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Button, Card, PageHeader } from '@/components/ui';
+import { ProductoFotoThumb } from '@/components/ProductoFotoThumb';
 import { apiDownload, apiFetch, apiUploadForm } from '@/lib/api';
+import { fotoUrlError } from '@/lib/foto-url';
 import {
   CATEGORIAS_CATALOGO,
   UNIDAD_MEDIDA_LABELS,
@@ -26,6 +28,7 @@ export default function ProveedorCatalogoPage() {
   const [importResult, setImportResult] = useState<ResultadoImportacionProductos | null>(null);
   const [importando, setImportando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const formInicial = {
     nombre: '',
     categoria: 'Sillas',
@@ -63,6 +66,13 @@ export default function ProveedorCatalogoPage() {
 
   async function guardarProducto(e: React.FormEvent) {
     e.preventDefault();
+    if (form.fotoUrl.trim()) {
+      const err = fotoUrlError(form.fotoUrl);
+      if (err) {
+        alert(err);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const payload = {
@@ -118,6 +128,24 @@ export default function ProveedorCatalogoPage() {
   function cancelarEdicion() {
     setEditandoId(null);
     setForm(formInicial);
+  }
+
+  async function eliminarProducto(producto: ProductoProveedorInventario) {
+    const ok = window.confirm(
+      `¿Eliminar "${producto.nombre}" del catálogo?\n\nEsta acción no se puede deshacer. Si solo dejará de ofrecerse, puedes desmarcar "Activo en catálogo" al editar.`,
+    );
+    if (!ok) return;
+
+    setEliminandoId(producto.id);
+    try {
+      await apiFetch(`/portal/productos/${producto.id}`, { method: 'DELETE' });
+      if (editandoId === producto.id) cancelarEdicion();
+      await cargar();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo eliminar el producto');
+    } finally {
+      setEliminandoId(null);
+    }
   }
 
   async function descargarPlantilla() {
@@ -325,19 +353,22 @@ export default function ProveedorCatalogoPage() {
                 </label>
                 <input
                   type="url"
-                  placeholder="https://..."
+                  placeholder="https://ejemplo.com/foto.jpg"
                   value={form.fotoUrl}
                   onChange={(e) => setForm({ ...form, fotoUrl: e.target.value })}
                   className="w-full text-sm"
                 />
-                {form.fotoUrl.trim() && (
-                  <img
-                    src={form.fotoUrl.trim()}
+                <p className="mt-1 text-xs text-slate-500">
+                  Enlace directo a la imagen (clic derecho en la foto → copiar dirección de imagen). No uses URLs de Google.
+                </p>
+                {form.fotoUrl.trim() && fotoUrlError(form.fotoUrl) && (
+                  <p className="mt-1 text-xs text-red-600">{fotoUrlError(form.fotoUrl)}</p>
+                )}
+                {form.fotoUrl.trim() && !fotoUrlError(form.fotoUrl) && (
+                  <ProductoFotoThumb
+                    url={form.fotoUrl.trim()}
                     alt="Vista previa"
-                    className="mt-2 h-16 w-16 rounded-lg border object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
+                    className="mt-2 h-16 w-16"
                   />
                 )}
               </div>
@@ -398,17 +429,7 @@ export default function ProveedorCatalogoPage() {
                         : 'border-slate-200'
                     }`}
                   >
-                    {p.fotos?.[0]?.url ? (
-                      <img
-                        src={p.fotos[0].url}
-                        alt={p.nombre}
-                        className="h-16 w-16 shrink-0 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">
-                        Sin foto
-                      </div>
-                    )}
+                    <ProductoFotoThumb url={p.fotos?.[0]?.url} alt={p.nombre} className="h-16 w-16" />
                     <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -445,14 +466,25 @@ export default function ProveedorCatalogoPage() {
                         <span className="font-semibold text-slate-900">
                           {formatMoney(p.precioReferencia)}
                         </span>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="text-xs"
-                          onClick={() => iniciarEdicion(p)}
-                        >
-                          Editar
-                        </Button>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="text-xs"
+                            onClick={() => iniciarEdicion(p)}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="danger"
+                            className="text-xs"
+                            disabled={eliminandoId === p.id}
+                            onClick={() => eliminarProducto(p)}
+                          >
+                            {eliminandoId === p.id ? 'Eliminando...' : 'Eliminar'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>

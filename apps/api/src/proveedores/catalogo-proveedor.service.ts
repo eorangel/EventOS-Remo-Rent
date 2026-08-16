@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { assertFotoUrl } from '../common/utils/foto-url';
 import { EstadoCotizacion } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { toNumber } from '../common/utils/pricing';
@@ -68,6 +69,16 @@ export class CatalogoProveedorService {
 
   async createProducto(proveedorId: string, dto: CreateProductoProveedorDto) {
     await this.ensureProveedor(proveedorId);
+    const fotos = dto.fotos?.length
+      ? dto.fotos.map((f, i) => {
+          try {
+            const url = assertFotoUrl(f.url);
+            return { ...f, url: url!, orden: f.orden ?? i };
+          } catch (err) {
+            throw new BadRequestException(err instanceof Error ? err.message : 'URL de foto inválida');
+          }
+        })
+      : undefined;
     const producto = await this.prisma.productoProveedor.create({
       data: {
         proveedorId,
@@ -78,9 +89,7 @@ export class CatalogoProveedorService {
         precioReferencia: dto.precioReferencia ?? 0,
         unidadMedida: dto.unidadMedida,
         activo: dto.activo,
-        fotos: dto.fotos?.length
-          ? { create: dto.fotos.map((f, i) => ({ ...f, orden: f.orden ?? i })) }
-          : undefined,
+        fotos: fotos?.length ? { create: fotos } : undefined,
       },
       include: productoInclude,
     });
@@ -95,6 +104,13 @@ export class CatalogoProveedorService {
       data,
     });
     if (fotoUrl !== undefined) {
+      if (fotoUrl?.trim()) {
+        try {
+          assertFotoUrl(fotoUrl);
+        } catch (err) {
+          throw new BadRequestException(err instanceof Error ? err.message : 'URL de foto inválida');
+        }
+      }
       await this.syncFotoPrincipal(id, fotoUrl);
     }
     return this.getProducto(proveedorId, id);
@@ -125,6 +141,12 @@ export class CatalogoProveedorService {
 
   async addFoto(proveedorId: string, productoId: string, dto: FotoProductoDto) {
     await this.getProducto(proveedorId, productoId);
+    let url: string;
+    try {
+      url = assertFotoUrl(dto.url)!;
+    } catch (err) {
+      throw new BadRequestException(err instanceof Error ? err.message : 'URL de foto inválida');
+    }
     if (dto.esPrincipal) {
       await this.prisma.fotoProductoProveedor.updateMany({
         where: { productoProveedorId: productoId },
@@ -134,7 +156,7 @@ export class CatalogoProveedorService {
     return this.prisma.fotoProductoProveedor.create({
       data: {
         productoProveedorId: productoId,
-        url: dto.url,
+        url,
         esPrincipal: dto.esPrincipal ?? false,
         orden: dto.orden ?? 0,
       },

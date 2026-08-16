@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
+import { ProductoFotoThumb } from '@/components/ProductoFotoThumb';
 import { apiFetch, apiDownload, apiUploadForm } from '@/lib/api';
+import { fotoUrlError } from '@/lib/foto-url';
 import {
   CATEGORIAS_CATALOGO,
   ENTIDADES_FEDERATIVAS,
@@ -52,6 +54,7 @@ export default function ProveedorExpedientePage() {
   const [importPreview, setImportPreview] = useState<ResultadoImportacionProductos | null>(null);
   const [importResult, setImportResult] = useState<ResultadoImportacionProductos | null>(null);
   const [importando, setImportando] = useState(false);
+  const [eliminandoProductoId, setEliminandoProductoId] = useState<string | null>(null);
 
   const [usuarios, setUsuarios] = useState<UsuarioProveedor[]>([]);
   const [usuarioForm, setUsuarioForm] = useState({
@@ -119,6 +122,13 @@ export default function ProveedorExpedientePage() {
   async function agregarProducto(e: React.FormEvent) {
     e.preventDefault();
     if (!exp) return;
+    if (productoForm.fotoUrl.trim()) {
+      const err = fotoUrlError(productoForm.fotoUrl);
+      if (err) {
+        alert(err);
+        return;
+      }
+    }
     setSaving(true);
     try {
       await apiFetch(`/proveedores/${exp.id}/productos`, {
@@ -145,6 +155,24 @@ export default function ProveedorExpedientePage() {
       await cargar();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function eliminarProducto(productoId: string, nombre: string) {
+    if (!exp) return;
+    const ok = window.confirm(
+      `¿Eliminar "${nombre}" del catálogo de ${exp.nombre}?\n\nEsta acción no se puede deshacer.`,
+    );
+    if (!ok) return;
+
+    setEliminandoProductoId(productoId);
+    try {
+      await apiFetch(`/proveedores/${exp.id}/productos/${productoId}`, { method: 'DELETE' });
+      await cargar();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo eliminar el producto');
+    } finally {
+      setEliminandoProductoId(null);
     }
   }
 
@@ -492,15 +520,29 @@ export default function ProveedorExpedientePage() {
                   <div className="space-y-4">
                     {exp.productos.map((p) => (
                       <div key={p.id} className="flex gap-4 rounded-xl border border-slate-200 p-4">
-                        {p.fotos?.[0] ? (
-                          <img src={p.fotos[0].url} alt={p.nombre} className="h-20 w-20 rounded-lg object-cover" />
-                        ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">Sin foto</div>
-                        )}
-                        <div className="flex-1">
-                          <p className="font-medium text-slate-900">{p.nombre}</p>
-                          <p className="text-sm text-slate-500">{p.categoria} · {p.cantidadDisponible} {UNIDAD_MEDIDA_LABELS[p.unidadMedida].toLowerCase()}(s)</p>
-                          <p className="text-sm font-semibold text-brand-700">{formatMoney(p.precioReferencia)} ref.</p>
+                        <ProductoFotoThumb url={p.fotos?.[0]?.url} alt={p.nombre} className="h-20 w-20" />
+                        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium text-slate-900">{p.nombre}</p>
+                              {p.activo === false && (
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                                  Inactivo
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-500">{p.categoria} · {p.cantidadDisponible} {UNIDAD_MEDIDA_LABELS[p.unidadMedida].toLowerCase()}(s)</p>
+                            <p className="text-sm font-semibold text-brand-700">{formatMoney(p.precioReferencia)} ref.</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="danger"
+                            className="shrink-0 text-xs"
+                            disabled={eliminandoProductoId === p.id}
+                            onClick={() => eliminarProducto(p.id, p.nombre)}
+                          >
+                            {eliminandoProductoId === p.id ? 'Eliminando...' : 'Eliminar'}
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -519,6 +561,10 @@ export default function ProveedorExpedientePage() {
                     <input type="number" min="0" step="0.01" placeholder="Precio ref." value={productoForm.precioReferencia} onChange={(e) => setProductoForm({ ...productoForm, precioReferencia: e.target.value })} className="w-full text-sm" />
                   </div>
                   <input placeholder="URL de fotografía (opcional)" value={productoForm.fotoUrl} onChange={(e) => setProductoForm({ ...productoForm, fotoUrl: e.target.value })} className="w-full text-sm" />
+                  {productoForm.fotoUrl.trim() && fotoUrlError(productoForm.fotoUrl) && (
+                    <p className="text-xs text-red-600">{fotoUrlError(productoForm.fotoUrl)}</p>
+                  )}
+                  <p className="text-xs text-slate-500">Enlace directo a la imagen (.jpg, .png). No uses URLs de búsqueda de Google.</p>
                   <textarea rows={2} placeholder="Descripción" value={productoForm.descripcion} onChange={(e) => setProductoForm({ ...productoForm, descripcion: e.target.value })} className="w-full text-sm" />
                   <Button type="submit" disabled={saving} className="w-full">Agregar al catálogo</Button>
                 </form>

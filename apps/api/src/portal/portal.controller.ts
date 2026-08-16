@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -379,5 +380,11 @@ export class PortalController {
   ) {
     const proveedorId = requireProveedorUser(getAuthUser(req));
     return this.catalogoService.updateProducto(proveedorId, id, dto);
+  }
+
+  @Delete('productos/:id')
+  removeProducto(@Req() req: Request, @Param('id') id: string) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.catalogoService.removeProducto(proveedorId, id);
   }
 }

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { UnidadMedidaProducto } from '@prisma/client';
+import { fotoUrlError, normalizeFotoUrl } from '../common/utils/foto-url';
 
 export interface FilaProductoExcel {
   fila: number;
@@ -82,20 +83,6 @@ function buildHeaderMap(headers: string[]): Map<string, string> {
   return map;
 }
 
-function normalizeFotoUrl(value: unknown): string | undefined {
-  if (value == null || value === '') return undefined;
-  let url = String(value).trim();
-  if (!url) return undefined;
-  if (!/^https?:\/\//i.test(url)) {
-    if (/^www\./i.test(url) || /^[\w.-]+\.[a-z]{2,}/i.test(url)) {
-      url = `https://${url.replace(/^\/\//, '')}`;
-    } else {
-      return undefined;
-    }
-  }
-  return url;
-}
-
 function fotoFromSheetCell(
   sheet: XLSX.WorkSheet,
   rowIndex: number,
@@ -174,8 +161,9 @@ export function parseProductosExcel(buffer: Buffer): FilaProductoExcel[] {
     const unidadMedida = parseUnidad(cellValue(row, 'unidad', headerMap));
 
     const fotoUrl = fotoFromSheetCell(sheet, index, fotoColIndex, fotoRaw);
-    if (fotoRaw && String(fotoRaw).trim() && !fotoUrl) {
-      errores.push('URL de foto inválida — use http:// o https:// (o enlace en la celda de Excel)');
+    if (fotoRaw && String(fotoRaw).trim()) {
+      const fotoErr = fotoUrl ? fotoUrlError(fotoUrl) : 'URL de foto inválida — use http:// o https://';
+      if (fotoErr) errores.push(fotoErr);
     }
 
     result.push({
@@ -216,7 +204,7 @@ export function buildPlantillaExcel(): Buffer {
     45,
     'Pieza',
     'Silla apilable para eventos',
-    'https://ejemplo.com/silla.jpg',
+    'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=400',
   ];
 
   const sheet = XLSX.utils.aoa_to_sheet([headers, ejemplo]);
