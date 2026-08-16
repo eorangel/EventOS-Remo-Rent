@@ -1,8 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventoDto, UpdateEventoDto } from './dto/evento.dto';
-import { EstadoEvento, EstadoEventoProveedor } from '@prisma/client';
+import { EstadoCotizacion, EstadoEvento, EstadoEventoProveedor } from '@prisma/client';
 import { toNumber } from '../common/utils/pricing';
+
+const ESTADOS_COTIZACION_CRM: EstadoCotizacion[] = [
+  EstadoCotizacion.BORRADOR,
+  EstadoCotizacion.ENVIADA,
+  EstadoCotizacion.APROBADA,
+];
 
 const eventoInclude = {
   cliente: true,
@@ -96,7 +102,7 @@ export class EventosService {
   }) {
     const { search, origen, estado } = filters ?? {};
 
-    const [plataforma, proveedor] = await Promise.all([
+    const [plataforma, proveedor, cotizaciones] = await Promise.all([
       origen === 'PROVEEDOR'
         ? []
         : this.prisma.evento.findMany({
@@ -126,7 +132,9 @@ export class EventosService {
         ? []
         : this.prisma.eventoClienteProveedor.findMany({
             where: {
-              ...(estado ? { estado: estado as EstadoEventoProveedor } : {}),
+              ...(estado && Object.values(EstadoEventoProveedor).includes(estado as EstadoEventoProveedor)
+                ? { estado: estado as EstadoEventoProveedor }
+                : {}),
               ...(search
                 ? {
                     OR: [
@@ -143,12 +151,41 @@ export class EventosService {
               clienteProveedor: { select: { id: true, nombre: true } },
             },
           }),
+      origen === 'PLATAFORMA'
+        ? []
+        : this.prisma.cotizacionProveedor.findMany({
+            where: {
+              estado: { in: ESTADOS_COTIZACION_CRM },
+              ...(estado && Object.values(EstadoCotizacion).includes(estado as EstadoCotizacion)
+                ? { estado: estado as EstadoCotizacion }
+                : {}),
+              ...(search
+                ? {
+                    OR: [
+                      { titulo: { contains: search, mode: 'insensitive' } },
+                      { folio: { contains: search, mode: 'insensitive' } },
+                      { lugarEntrega: { contains: search, mode: 'insensitive' } },
+                      { clienteProveedor: { nombre: { contains: search, mode: 'insensitive' } } },
+                      { proveedor: { nombre: { contains: search, mode: 'insensitive' } } },
+                    ],
+                  }
+                : {}),
+            },
+            include: {
+              proveedor: { select: { id: true, nombre: true } },
+              clienteProveedor: { select: { id: true, nombre: true } },
+              items: {
+                include: { productoProveedor: { select: { id: true, nombre: true } } },
+              },
+            },
+          }),
     ]);
 
     const items = [
       ...plataforma.map((e) => ({
         id: e.id,
         origen: 'PLATAFORMA' as const,
+        tipo: 'EVENTO' as const,
         titulo: e.titulo,
         fechaEvento: e.fechaEvento.toISOString(),
         fechaFin: e.fechaDesmontaje?.toISOString() ?? null,
@@ -167,6 +204,7 @@ export class EventosService {
       ...proveedor.map((e) => ({
         id: e.id,
         origen: 'PROVEEDOR' as const,
+        tipo: 'EVENTO' as const,
         titulo: e.titulo,
         fechaEvento: e.fechaEvento.toISOString(),
         fechaFin: e.fechaFin?.toISOString() ?? null,
@@ -181,6 +219,24 @@ export class EventosService {
         creadoEn: e.createdAt.toISOString(),
         enlace: `/eventos/portal/${e.id}`,
       })),
+      ...cotizaciones.map((c) => ({
+        id: c.id,
+        origen: 'PROVEEDOR' as const,
+        tipo: 'COTIZACION' as const,
+        titulo: c.titulo ?? c.folio,
+        fechaEvento: (c.fechaEvento ?? c.createdAt).toISOString(),
+        fechaFin: null,
+        lugar: c.lugarEntrega,
+        estado: c.estado,
+        clienteId: c.clienteProveedorId,
+        clienteNombre: c.clienteProveedor.nombre,
+        proveedorId: c.proveedorId,
+        proveedorNombre: c.proveedor.nombre,
+        montoEstimado: toNumber(c.total),
+        creadoPor: null as string | null,
+        creadoEn: c.createdAt.toISOString(),
+        enlace: `/eventos/cotizacion/${c.id}`,
+      })),
     ].sort((a, b) => new Date(b.fechaEvento).getTime() - new Date(a.fechaEvento).getTime());
 
     return items;
@@ -191,27 +247,44 @@ export class EventosService {
     const hoy = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [totalPlataforma, totalProveedor, plataforma, proveedor] = await Promise.all([
+    const [totalPlataforma, totalProveedor, totalCotizaciones, plataforma, proveedor, cotizaciones] =
+      await Promise.all([
       this.prisma.evento.count(),
-      this.prisma.eventoClienteProveedor.count(),
+      this.prisma.eventoClienteProveedor.count({
+        where: { estado: { not: EstadoEventoProveedor.CANCELADO } },
+      }),
+      this.prisma.cotizacionProveedor.count({
+        where: { estado: { in: ESTADOS_COTIZACION_CRM } },
+      }),
       this.prisma.evento.findMany({
         select: { estado: true, fechaEvento: true, createdAt: true },
       }),
       this.prisma.eventoClienteProveedor.findMany({
+        where: { estado: { not: EstadoEventoProveedor.CANCELADO } },
+        select: { estado: true, fechaEvento: true, createdAt: true },
+      }),
+      this.prisma.cotizacionProveedor.findMany({
+        where: { estado: { in: ESTADOS_COTIZACION_CRM } },
         select: { estado: true, fechaEvento: true, createdAt: true },
       }),
     ]);
 
     const completadosPlataforma = plataforma.filter((e) => e.estado === EstadoEvento.COMPLETADO).length;
     const completadosProveedor = proveedor.filter((e) => e.estado === EstadoEventoProveedor.COMPLETADO).length;
+    const cotizacionesAprobadas = cotizaciones.filter((c) => c.estado === EstadoCotizacion.APROBADA).length;
     const proximosPlataforma = plataforma.filter(
       (e) => e.fechaEvento >= hoy && e.estado !== EstadoEvento.CANCELADO,
     ).length;
     const proximosProveedor = proveedor.filter(
       (e) => e.fechaEvento >= hoy && e.estado !== EstadoEventoProveedor.CANCELADO,
     ).length;
+    const proximosCotizaciones = cotizaciones.filter((c) => {
+      const fecha = c.fechaEvento ?? c.createdAt;
+      return fecha >= hoy;
+    }).length;
     const mesPlataforma = plataforma.filter((e) => e.createdAt >= inicioMes).length;
     const mesProveedor = proveedor.filter((e) => e.createdAt >= inicioMes).length;
+    const mesCotizaciones = cotizaciones.filter((c) => c.createdAt >= inicioMes).length;
 
     const buckets: { mes: string; mesLabel: string; plataforma: number; proveedor: number }[] = [];
     for (let i = 5; i >= 0; i--) {
@@ -234,15 +307,66 @@ export class EventosService {
       const bucket = buckets.find((b) => b.mes === key);
       if (bucket) bucket.proveedor += 1;
     }
+    for (const c of cotizaciones) {
+      const fecha = c.fechaEvento ?? c.createdAt;
+      const key = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+      const bucket = buckets.find((b) => b.mes === key);
+      if (bucket) bucket.proveedor += 1;
+    }
+
+    const totalProveedorOps = totalProveedor + totalCotizaciones;
 
     return {
-      total: totalPlataforma + totalProveedor,
+      total: totalPlataforma + totalProveedorOps,
       plataforma: totalPlataforma,
-      proveedor: totalProveedor,
-      completados: completadosPlataforma + completadosProveedor,
-      proximos: proximosPlataforma + proximosProveedor,
-      registradosMes: mesPlataforma + mesProveedor,
+      proveedor: totalProveedorOps,
+      eventosProveedor: totalProveedor,
+      cotizacionesProveedor: totalCotizaciones,
+      completados: completadosPlataforma + completadosProveedor + cotizacionesAprobadas,
+      proximos: proximosPlataforma + proximosProveedor + proximosCotizaciones,
+      registradosMes: mesPlataforma + mesProveedor + mesCotizaciones,
       porMes: buckets,
+    };
+  }
+
+  async findOneCrmCotizacion(id: string) {
+    const cotizacion = await this.prisma.cotizacionProveedor.findUnique({
+      where: { id },
+      include: {
+        proveedor: { select: { id: true, nombre: true, ciudad: true, entidadFederativa: true } },
+        clienteProveedor: {
+          select: { id: true, nombre: true, email: true, telefono: true, empresa: true },
+        },
+        items: {
+          include: { productoProveedor: { select: { id: true, nombre: true } } },
+        },
+      },
+    });
+    if (!cotizacion) throw new NotFoundException('Cotización de proveedor no encontrada');
+
+    return {
+      id: cotizacion.id,
+      origen: 'PROVEEDOR' as const,
+      tipo: 'COTIZACION' as const,
+      folio: cotizacion.folio,
+      titulo: cotizacion.titulo ?? cotizacion.folio,
+      estado: cotizacion.estado,
+      fechaEvento: cotizacion.fechaEvento?.toISOString() ?? null,
+      lugarEntrega: cotizacion.lugarEntrega,
+      subtotal: toNumber(cotizacion.subtotal),
+      total: toNumber(cotizacion.total),
+      notas: cotizacion.notas,
+      creadoEn: cotizacion.createdAt.toISOString(),
+      proveedor: cotizacion.proveedor,
+      cliente: cotizacion.clienteProveedor,
+      items: cotizacion.items.map((item) => ({
+        id: item.id,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        precioUnitario: toNumber(item.precioUnitario),
+        subtotal: toNumber(item.subtotal),
+        productoNombre: item.productoProveedor?.nombre ?? null,
+      })),
     };
   }
 

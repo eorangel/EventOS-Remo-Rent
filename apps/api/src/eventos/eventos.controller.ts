@@ -34,6 +34,11 @@ export class EventosController {
     return this.eventosService.findAllCrm({ search, origen, estado });
   }
 
+  @Get('crm/cotizacion/:id')
+  findOneCrmCotizacion(@Param('id') id: string) {
+    return this.eventosService.findOneCrmCotizacion(id);
+  }
+
   @Get('crm/proveedor/:id')
   findOneCrmProveedor(@Param('id') id: string) {
     return this.eventosService.findOneCrmProveedor(id);

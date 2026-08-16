@@ -818,9 +818,12 @@ export type Evento = {
 
 export type OrigenEventoCrm = 'PLATAFORMA' | 'PROVEEDOR';
 
+export type TipoEventoCrm = 'EVENTO' | 'COTIZACION';
+
 export type EventoCrm = {
   id: string;
   origen: OrigenEventoCrm;
+  tipo?: TipoEventoCrm;
   titulo: string;
   fechaEvento: string;
   fechaFin?: string | null;
@@ -840,10 +843,48 @@ export type EventosCrmResumen = {
   total: number;
   plataforma: number;
   proveedor: number;
+  eventosProveedor?: number;
+  cotizacionesProveedor?: number;
   completados: number;
   proximos: number;
   registradosMes: number;
   porMes: { mes: string; mesLabel: string; plataforma: number; proveedor: number }[];
+};
+
+export type EventoCrmCotizacionDetalle = {
+  id: string;
+  origen: 'PROVEEDOR';
+  tipo: 'COTIZACION';
+  folio: string;
+  titulo: string;
+  estado: EstadoCotizacion;
+  fechaEvento?: string | null;
+  lugarEntrega?: string | null;
+  subtotal: number;
+  total: number;
+  notas?: string | null;
+  creadoEn: string;
+  proveedor: {
+    id: string;
+    nombre: string;
+    ciudad?: string | null;
+    entidadFederativa?: string | null;
+  };
+  cliente: {
+    id: string;
+    nombre: string;
+    email?: string | null;
+    telefono?: string | null;
+    empresa?: string | null;
+  };
+  items: {
+    id: string;
+    descripcion: string;
+    cantidad: number;
+    precioUnitario: number;
+    subtotal: number;
+    productoNombre?: string | null;
+  }[];
 };
 
 export type EventoCrmProveedorDetalle = {

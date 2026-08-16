@@ -50,7 +50,7 @@ export function EventosCrmResumenPanel({ data }: { data: EventosCrmResumen }) {
         <p className="text-sm text-brand-200/80">Registro central · CRM</p>
         <h2 className="mt-1 text-xl font-bold">Todos los eventos del ecosistema</h2>
         <p className="mt-1 text-sm text-slate-300">
-          Eventos levantados en Remo&amp;Rent y en los portales de proveedores, unificados en una sola vista
+          Eventos de plataforma, eventos de proveedores y cotizaciones con fecha de servicio, en una sola vista
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -58,7 +58,7 @@ export function EventosCrmResumenPanel({ data }: { data: EventosCrmResumen }) {
             {
               label: 'Total registrados',
               value: data.total.toLocaleString('es-MX'),
-              hint: `${data.plataforma} plataforma · ${data.proveedor} proveedor`,
+              hint: `${data.plataforma} plataforma · ${data.proveedor} proveedor${data.cotizacionesProveedor != null ? ` (${data.cotizacionesProveedor} cotiz.)` : ''}`,
             },
             {
               label: 'Completados',
@@ -100,7 +100,11 @@ export function EventosCrmResumenPanel({ data }: { data: EventosCrmResumen }) {
             <KpiCard
               label="Portales proveedor"
               value={data.proveedor}
-              hint="Levantados por la red de proveedores"
+              hint={
+                data.cotizacionesProveedor != null
+                  ? `${data.eventosProveedor ?? 0} eventos · ${data.cotizacionesProveedor} cotizaciones`
+                  : 'Eventos y cotizaciones de la red'
+              }
             />
           </div>
           <div className="mt-4 flex gap-4 text-xs text-slate-500">

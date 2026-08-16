@@ -6,6 +6,8 @@ import { EventosCrmResumenPanel } from '@/components/EventosCrmResumen';
 import { Badge, Button, EmptyState, PageHeader } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
 import {
+  ESTADO_COTIZACION_COLORS,
+  ESTADO_COTIZACION_LABELS,
   ESTADO_EVENTO_COLORS,
   ESTADO_EVENTO_LABELS,
   ESTADO_EVENTO_PROVEEDOR_COLORS,
@@ -14,6 +16,7 @@ import {
   formatMoney,
 } from '@/lib/labels';
 import type {
+  EstadoCotizacion,
   EstadoEvento,
   EstadoEventoProveedor,
   EventoCrm,
@@ -27,6 +30,13 @@ function estadoCrm(evento: EventoCrm) {
     return {
       label: ESTADO_EVENTO_LABELS[e] ?? evento.estado,
       color: ESTADO_EVENTO_COLORS[e] ?? 'bg-slate-100 text-slate-700',
+    };
+  }
+  if (evento.tipo === 'COTIZACION') {
+    const e = evento.estado as EstadoCotizacion;
+    return {
+      label: ESTADO_COTIZACION_LABELS[e] ?? evento.estado,
+      color: ESTADO_COTIZACION_COLORS[e] ?? 'bg-slate-100 text-slate-700',
     };
   }
   const e = evento.estado as EstadoEventoProveedor;
@@ -65,7 +75,7 @@ export default function EventosPage() {
     <>
       <PageHeader
         title="Eventos"
-        description="Registro unificado de todos los eventos que pasan por el CRM — plataforma y portales de proveedores"
+        description="Registro unificado de eventos, cotizaciones y operaciones de proveedores en la red"
         action={
           <Link href="/eventos/nuevo">
             <Button variant="secondary">Nuevo evento (plataforma)</Button>
@@ -114,7 +124,7 @@ export default function EventosPage() {
         ) : eventos.length === 0 ? (
           <EmptyState
             title="Sin eventos"
-            description="Aún no hay eventos registrados en el CRM. Los eventos creados en la plataforma o en portales de proveedores aparecerán aquí."
+            description="Aún no hay eventos ni cotizaciones registradas. La actividad de proveedores aparecerá aquí automáticamente."
           />
         ) : (
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -135,7 +145,7 @@ export default function EventosPage() {
                   {eventos.map((evento) => {
                     const { label, color } = estadoCrm(evento);
                     return (
-                      <tr key={`${evento.origen}-${evento.id}`} className="hover:bg-slate-50/80">
+                      <tr key={`${evento.origen}-${evento.tipo ?? 'EVENTO'}-${evento.id}`} className="hover:bg-slate-50/80">
                         <td className="px-4 py-3">
                           <Link
                             href={evento.enlace}
@@ -143,9 +153,14 @@ export default function EventosPage() {
                           >
                             {evento.titulo}
                           </Link>
-                          {evento.lugar && (
-                            <p className="mt-0.5 text-xs text-slate-500">{evento.lugar}</p>
-                          )}
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {evento.tipo === 'COTIZACION' && (
+                              <Badge className="bg-violet-50 text-violet-700">Cotización</Badge>
+                            )}
+                            {evento.lugar && (
+                              <p className="text-xs text-slate-500">{evento.lugar}</p>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-slate-700">{evento.clienteNombre}</td>
                         <td className="px-4 py-3 text-slate-600">
