@@ -319,6 +319,7 @@ export type PortalDashboardFinanciero = {
   saldoPendiente: number;
   eventosMes: number;
   eventosActivos: number;
+  cotizacionesActivas?: number;
   clientesActivos: number;
   cobrosPagadosMes: number;
   cobrosPendientes: number;
@@ -340,16 +341,33 @@ export type PortalDashboard = {
     productosCatalogo: number;
     cobrosPendientes: number;
     cobrosPagados: number;
+    cotizacionesActivas?: number;
   };
   financiero?: PortalDashboardFinanciero;
   cobrosRecientes: OrdenCobro[];
+};
+
+export type PortalReporteOperacion = {
+  id: string;
+  tipo: 'evento' | 'cotizacion';
+  titulo: string;
+  fecha: string;
+  estado: string;
+  clienteId: string;
+  clienteNombre: string;
+  lugar?: string | null;
+  montoEstimado?: number | null;
+  enlace?: string;
 };
 
 export type PortalReportes = {
   generadoEn: string;
   resumen: {
     totalVentas: number;
+    totalPipeline?: number;
+    totalOperaciones?: number;
     totalEventos: number;
+    cotizacionesActivas?: number;
     productosRentados: number;
     clientesConActividad: number;
   };
@@ -357,7 +375,9 @@ export type PortalReportes = {
     clienteId: string;
     nombre: string;
     totalCobrado: number;
+    totalCotizado?: number;
     cobrosPagados: number;
+    cotizaciones?: number;
     eventos: number;
   }[];
   productosMasRentados: {
@@ -372,6 +392,28 @@ export type PortalReportes = {
     monto: number;
     cobros: number;
   }[];
+  pipelinePorMes?: {
+    mes: string;
+    mesLabel: string;
+    monto: number;
+    cobros: number;
+  }[];
+  operaciones?: {
+    resumen: {
+      total: number;
+      eventosRegistrados: number;
+      cotizacionesActivas: number;
+      cotizacionesBorrador: number;
+      cotizacionesEnviadas: number;
+      cotizacionesAprobadas: number;
+      confirmados: number;
+      enEjecucion: number;
+      completados: number;
+      proximos: number;
+    };
+    porMes: { mes: string; mesLabel: string; cantidad: number }[];
+    recientes: PortalReporteOperacion[];
+  };
   eventos: {
     resumen: {
       total: number;
@@ -381,16 +423,7 @@ export type PortalReportes = {
       proximos: number;
     };
     porMes: { mes: string; mesLabel: string; cantidad: number }[];
-    recientes: {
-      id: string;
-      titulo: string;
-      fecha: string;
-      estado: EstadoEventoProveedor;
-      clienteId: string;
-      clienteNombre: string;
-      lugar?: string | null;
-      montoEstimado?: number | null;
-    }[];
+    recientes: PortalReporteOperacion[];
   };
 };
 

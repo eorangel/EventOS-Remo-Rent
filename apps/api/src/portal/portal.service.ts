@@ -55,6 +55,12 @@ const DIAS_DEFAULT = [
   'Domingo',
 ];
 
+const ESTADOS_COTIZACION_OPERATIVA: EstadoCotizacion[] = [
+  EstadoCotizacion.BORRADOR,
+  EstadoCotizacion.ENVIADA,
+  EstadoCotizacion.APROBADA,
+];
+
 @Injectable()
 export class PortalService {
   constructor(
@@ -95,6 +101,9 @@ export class PortalService {
       totalEmitidoAgg,
       eventosMes,
       eventosActivos,
+      cotizacionesMes,
+      cotizacionesProximas,
+      cotizacionesActivas,
       cobrosPagadosMes,
       cobrosCreadosMes,
       cobrosPagadosRecientes,
@@ -147,6 +156,26 @@ export class PortalService {
         where: {
           proveedorId,
           estado: { in: [EstadoEventoProveedor.CONFIRMADO, EstadoEventoProveedor.EN_EJECUCION] },
+        },
+      }),
+      this.prisma.cotizacionProveedor.count({
+        where: {
+          proveedorId,
+          estado: { in: ESTADOS_COTIZACION_OPERATIVA },
+          fechaEvento: { gte: inicioMes, lte: finMes },
+        },
+      }),
+      this.prisma.cotizacionProveedor.count({
+        where: {
+          proveedorId,
+          estado: { in: [EstadoCotizacion.ENVIADA, EstadoCotizacion.APROBADA] },
+          fechaEvento: { gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) },
+        },
+      }),
+      this.prisma.cotizacionProveedor.count({
+        where: {
+          proveedorId,
+          estado: { in: ESTADOS_COTIZACION_OPERATIVA },
         },
       }),
       this.prisma.ordenCobro.count({
@@ -216,6 +245,7 @@ export class PortalService {
         productosCatalogo: proveedor.productos.length,
         cobrosPendientes,
         cobrosPagados,
+        cotizacionesActivas,
       },
       financiero: {
         mes: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
@@ -224,8 +254,9 @@ export class PortalService {
         ingresosMesAnterior,
         variacionIngresos,
         saldoPendiente,
-        eventosMes,
-        eventosActivos,
+        eventosMes: eventosMes + cotizacionesMes,
+        eventosActivos: eventosActivos + cotizacionesProximas,
+        cotizacionesActivas,
         clientesActivos: clientes,
         cobrosPagadosMes,
         cobrosPendientes,
@@ -241,33 +272,62 @@ export class PortalService {
     const proveedorId = requireProveedorUser(user);
     const now = new Date();
     const mesesVentas = 6;
-
     const inicioVentas = new Date(now.getFullYear(), now.getMonth() - (mesesVentas - 1), 1);
+    const hoy = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const [cobrosPagados, itemsCotizacion, eventos] = await Promise.all([
-      this.prisma.ordenCobro.findMany({
-        where: {
-          proveedorId,
-          estado: EstadoOrdenCobro.PAGADO,
-          pagadoEn: { not: null },
-        },
-        include: { clienteProveedor: true },
-      }),
-      this.prisma.cotizacionProveedorItem.findMany({
-        where: {
-          cotizacion: {
+    const ventasBuckets: { mes: string; mesLabel: string; monto: number; cobros: number }[] = [];
+    for (let i = mesesVentas - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const mesLabel = new Intl.DateTimeFormat('es-MX', {
+        month: 'short',
+        year: '2-digit',
+      }).format(d);
+      ventasBuckets.push({ mes: key, mesLabel, monto: 0, cobros: 0 });
+    }
+
+    const [cobrosPagados, cobrosPipeline, itemsCotizacion, eventos, cotizaciones] =
+      await Promise.all([
+        this.prisma.ordenCobro.findMany({
+          where: {
             proveedorId,
-            estado: { in: [EstadoCotizacion.APROBADA, EstadoCotizacion.ENVIADA] },
+            estado: EstadoOrdenCobro.PAGADO,
+            pagadoEn: { not: null },
           },
-        },
-        include: { productoProveedor: true },
-      }),
-      this.prisma.eventoClienteProveedor.findMany({
-        where: { proveedorId, estado: { not: EstadoEventoProveedor.CANCELADO } },
-        include: { clienteProveedor: true },
-        orderBy: { fechaEvento: 'desc' },
-      }),
-    ]);
+          include: { clienteProveedor: true },
+        }),
+        this.prisma.ordenCobro.findMany({
+          where: {
+            proveedorId,
+            estado: {
+              in: [EstadoOrdenCobro.BORRADOR, EstadoOrdenCobro.PENDIENTE, EstadoOrdenCobro.VENCIDO],
+            },
+          },
+          include: { clienteProveedor: true },
+        }),
+        this.prisma.cotizacionProveedorItem.findMany({
+          where: {
+            cotizacion: {
+              proveedorId,
+              estado: { in: ESTADOS_COTIZACION_OPERATIVA },
+            },
+          },
+          include: { productoProveedor: true },
+        }),
+        this.prisma.eventoClienteProveedor.findMany({
+          where: { proveedorId, estado: { not: EstadoEventoProveedor.CANCELADO } },
+          include: { clienteProveedor: true },
+          orderBy: { fechaEvento: 'desc' },
+        }),
+        this.prisma.cotizacionProveedor.findMany({
+          where: {
+            proveedorId,
+            estado: { in: ESTADOS_COTIZACION_OPERATIVA },
+          },
+          include: { clienteProveedor: true },
+          orderBy: { fechaEvento: 'desc' },
+        }),
+      ]);
 
     const clientesMap = new Map<
       string,
@@ -275,47 +335,73 @@ export class PortalService {
         clienteId: string;
         nombre: string;
         totalCobrado: number;
+        totalCotizado: number;
         cobrosPagados: number;
+        cotizaciones: number;
         eventos: number;
       }
     >();
 
-    for (const cobro of cobrosPagados) {
-      const id = cobro.clienteProveedorId;
+    const upsertCliente = (
+      id: string,
+      nombre: string,
+      patch: Partial<{
+        totalCobrado: number;
+        totalCotizado: number;
+        cobrosPagados: number;
+        cotizaciones: number;
+        eventos: number;
+      }>,
+    ) => {
       const row = clientesMap.get(id) ?? {
         clienteId: id,
-        nombre: cobro.clienteProveedor.nombre,
+        nombre,
         totalCobrado: 0,
+        totalCotizado: 0,
         cobrosPagados: 0,
+        cotizaciones: 0,
         eventos: 0,
       };
-      row.totalCobrado += toNumber(cobro.monto);
-      row.cobrosPagados += 1;
+      if (patch.totalCobrado) row.totalCobrado += patch.totalCobrado;
+      if (patch.totalCotizado) row.totalCotizado += patch.totalCotizado;
+      if (patch.cobrosPagados) row.cobrosPagados += patch.cobrosPagados;
+      if (patch.cotizaciones) row.cotizaciones += patch.cotizaciones;
+      if (patch.eventos) row.eventos += patch.eventos;
       clientesMap.set(id, row);
+    };
+
+    for (const cobro of cobrosPagados) {
+      if (!cobro.pagadoEn || cobro.pagadoEn < inicioVentas) continue;
+      upsertCliente(cobro.clienteProveedorId, cobro.clienteProveedor.nombre, {
+        totalCobrado: toNumber(cobro.monto),
+        cobrosPagados: 1,
+      });
+    }
+
+    for (const cot of cotizaciones) {
+      upsertCliente(cot.clienteProveedorId, cot.clienteProveedor.nombre, {
+        totalCotizado: toNumber(cot.total),
+        cotizaciones: 1,
+      });
     }
 
     for (const evento of eventos) {
-      const id = evento.clienteProveedorId;
-      const existing = clientesMap.get(id);
-      if (existing) {
-        existing.eventos += 1;
-      } else {
-        clientesMap.set(id, {
-          clienteId: id,
-          nombre: evento.clienteProveedor.nombre,
-          totalCobrado: 0,
-          cobrosPagados: 0,
-          eventos: 1,
-        });
-      }
+      upsertCliente(evento.clienteProveedorId, evento.clienteProveedor.nombre, {
+        eventos: 1,
+      });
     }
 
     const topClientes = [...clientesMap.values()]
-      .sort((a, b) => b.totalCobrado - a.totalCobrado || b.eventos - a.eventos)
+      .sort(
+        (a, b) =>
+          b.totalCobrado + b.totalCotizado - (a.totalCobrado + a.totalCotizado) ||
+          b.cotizaciones - a.cotizaciones,
+      )
       .slice(0, 8)
       .map((c) => ({
         ...c,
         totalCobrado: roundMoney(c.totalCobrado),
+        totalCotizado: roundMoney(c.totalCotizado),
       }));
 
     const productosMap = new Map<
@@ -342,24 +428,14 @@ export class PortalService {
       productosMap.set(key, row);
     }
 
-    const productosMasRentados = [...productosMap.values()]
-      .sort((a, b) => b.cantidadRentada - a.cantidadRentada)
-      .slice(0, 8)
-      .map((p) => ({
-        ...p,
-        ingresosEstimados: roundMoney(p.ingresosEstimados),
-      }));
-
-    const ventasBuckets: { mes: string; mesLabel: string; monto: number; cobros: number }[] = [];
-    for (let i = mesesVentas - 1; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const mesLabel = new Intl.DateTimeFormat('es-MX', {
-        month: 'short',
-        year: '2-digit',
-      }).format(d);
-      ventasBuckets.push({ mes: key, mesLabel, monto: 0, cobros: 0 });
-    }
+    const productosOrdenados = [...productosMap.values()].sort(
+      (a, b) => b.cantidadRentada - a.cantidadRentada,
+    );
+    const productosMasRentados = productosOrdenados.slice(0, 8).map((p) => ({
+      ...p,
+      ingresosEstimados: roundMoney(p.ingresosEstimados),
+    }));
+    const totalUnidadesRentadas = productosOrdenados.reduce((s, p) => s + p.cantidadRentada, 0);
 
     for (const cobro of cobrosPagados) {
       if (!cobro.pagadoEn || cobro.pagadoEn < inicioVentas) continue;
@@ -376,56 +452,127 @@ export class PortalService {
       monto: roundMoney(b.monto),
     }));
 
-    const hoy = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const eventosPorEstado = {
-      total: eventos.length,
+    const pipelinePorMes = ventasBuckets.map((b) => ({
+      mes: b.mes,
+      mesLabel: b.mesLabel,
+      monto: 0,
+      cobros: 0,
+    }));
+
+    for (const cobro of cobrosPipeline) {
+      const ref = cobro.fechaVencimiento ?? cobro.createdAt;
+      if (ref < inicioVentas) continue;
+      const key = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}`;
+      const bucket = pipelinePorMes.find((b) => b.mes === key);
+      if (bucket) {
+        bucket.monto += toNumber(cobro.monto);
+        bucket.cobros += 1;
+      }
+    }
+
+    const pipelinePorMesRounded = pipelinePorMes.map((b) => ({
+      ...b,
+      monto: roundMoney(b.monto),
+    }));
+
+    const cotizacionesConFecha = cotizaciones.filter((c) => c.fechaEvento);
+    const operacionesPorMesMap = new Map<string, number>();
+
+    for (const e of eventos) {
+      const key = `${e.fechaEvento.getFullYear()}-${String(e.fechaEvento.getMonth() + 1).padStart(2, '0')}`;
+      operacionesPorMesMap.set(key, (operacionesPorMesMap.get(key) ?? 0) + 1);
+    }
+    for (const c of cotizacionesConFecha) {
+      const fecha = c.fechaEvento!;
+      const key = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+      operacionesPorMesMap.set(key, (operacionesPorMesMap.get(key) ?? 0) + 1);
+    }
+
+    const operacionesPorMes = ventasBuckets.map((b) => ({
+      mes: b.mes,
+      mesLabel: b.mesLabel,
+      cantidad: operacionesPorMesMap.get(b.mes) ?? 0,
+    }));
+
+    const operacionesResumen = {
+      total: eventos.length + cotizaciones.length,
+      eventosRegistrados: eventos.length,
+      cotizacionesActivas: cotizaciones.length,
+      cotizacionesBorrador: cotizaciones.filter((c) => c.estado === EstadoCotizacion.BORRADOR).length,
+      cotizacionesEnviadas: cotizaciones.filter((c) => c.estado === EstadoCotizacion.ENVIADA).length,
+      cotizacionesAprobadas: cotizaciones.filter((c) => c.estado === EstadoCotizacion.APROBADA).length,
       confirmados: eventos.filter((e) => e.estado === EstadoEventoProveedor.CONFIRMADO).length,
       enEjecucion: eventos.filter((e) => e.estado === EstadoEventoProveedor.EN_EJECUCION).length,
       completados: eventos.filter((e) => e.estado === EstadoEventoProveedor.COMPLETADO).length,
-      proximos: eventos.filter((e) => e.fechaEvento >= hoy).length,
+      proximos:
+        eventos.filter((e) => e.fechaEvento >= hoy).length +
+        cotizacionesConFecha.filter((c) => c.fechaEvento! >= hoy).length,
     };
 
-    const eventosPorMesMap = new Map<string, number>();
-    for (const e of eventos) {
-      const key = `${e.fechaEvento.getFullYear()}-${String(e.fechaEvento.getMonth() + 1).padStart(2, '0')}`;
-      eventosPorMesMap.set(key, (eventosPorMesMap.get(key) ?? 0) + 1);
-    }
-
-    const eventosPorMes = ventasBuckets.map((b) => ({
-      mes: b.mes,
-      mesLabel: b.mesLabel,
-      cantidad: eventosPorMesMap.get(b.mes) ?? 0,
-    }));
-
-    const eventosRecientes = eventos.slice(0, 8).map((e) => ({
-      id: e.id,
-      titulo: e.titulo,
-      fecha: e.fechaEvento.toISOString(),
-      estado: e.estado,
-      clienteId: e.clienteProveedorId,
-      clienteNombre: e.clienteProveedor.nombre,
-      lugar: e.lugar,
-      montoEstimado:
-        e.montoEstimado != null ? toNumber(e.montoEstimado as never) : null,
-    }));
+    const operacionesRecientes = [
+      ...eventos.map((e) => ({
+        id: e.id,
+        tipo: 'evento' as const,
+        titulo: e.titulo,
+        fecha: e.fechaEvento.toISOString(),
+        estado: e.estado,
+        clienteId: e.clienteProveedorId,
+        clienteNombre: e.clienteProveedor.nombre,
+        lugar: e.lugar,
+        montoEstimado: e.montoEstimado != null ? toNumber(e.montoEstimado as never) : null,
+        enlace: `/proveedor/clientes/${e.clienteProveedorId}`,
+      })),
+      ...cotizaciones.map((c) => ({
+        id: c.id,
+        tipo: 'cotizacion' as const,
+        titulo: c.titulo ?? c.folio,
+        fecha: (c.fechaEvento ?? c.createdAt).toISOString(),
+        estado: c.estado,
+        clienteId: c.clienteProveedorId,
+        clienteNombre: c.clienteProveedor.nombre,
+        lugar: c.lugarEntrega,
+        montoEstimado: toNumber(c.total),
+        enlace: `/proveedor/cotizaciones/${c.id}`,
+      })),
+    ]
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+      .slice(0, 8);
 
     const totalVentas = roundMoney(ventasPorMes.reduce((s, v) => s + v.monto, 0));
+    const totalPipeline = roundMoney(
+      cobrosPipeline.reduce((s, c) => s + toNumber(c.monto), 0),
+    );
 
     return {
       generadoEn: now.toISOString(),
       resumen: {
         totalVentas,
-        totalEventos: eventosPorEstado.total,
-        productosRentados: productosMasRentados.reduce((s, p) => s + p.cantidadRentada, 0),
+        totalPipeline,
+        totalOperaciones: operacionesResumen.total,
+        totalEventos: operacionesResumen.total,
+        cotizacionesActivas: cotizaciones.length,
+        productosRentados: totalUnidadesRentadas,
         clientesConActividad: clientesMap.size,
       },
       topClientes,
       productosMasRentados,
       ventasPorMes,
+      pipelinePorMes: pipelinePorMesRounded,
+      operaciones: {
+        resumen: operacionesResumen,
+        porMes: operacionesPorMes,
+        recientes: operacionesRecientes,
+      },
       eventos: {
-        resumen: eventosPorEstado,
-        porMes: eventosPorMes,
-        recientes: eventosRecientes,
+        resumen: {
+          total: operacionesResumen.total,
+          confirmados: operacionesResumen.confirmados,
+          enEjecucion: operacionesResumen.enEjecucion,
+          completados: operacionesResumen.completados,
+          proximos: operacionesResumen.proximos,
+        },
+        porMes: operacionesPorMes,
+        recientes: operacionesRecientes,
       },
     };
   }
@@ -779,7 +926,7 @@ export class PortalService {
         this.prisma.cotizacionProveedor.findMany({
           where: {
             proveedorId,
-            estado: { in: [EstadoCotizacion.APROBADA, EstadoCotizacion.ENVIADA] },
+            estado: { in: ESTADOS_COTIZACION_OPERATIVA },
             fechaEvento: { gte: from, lte: toEnd },
           },
           include: { clienteProveedor: true },
@@ -1192,7 +1339,7 @@ export class PortalService {
         clienteProveedorId: dto.clienteProveedorId,
         titulo: dto.titulo,
         descripcion: dto.descripcion,
-        fechaEvento: new Date(dto.fechaEvento),
+        fechaEvento: parseFechaEventoDia(dto.fechaEvento),
         fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
         fechaEntrega: dto.fechaEntrega ? new Date(dto.fechaEntrega) : undefined,
         fechaRecogida: dto.fechaRecogida ? new Date(dto.fechaRecogida) : undefined,
@@ -1213,7 +1360,7 @@ export class PortalService {
       where: { id },
       data: {
         ...dto,
-        fechaEvento: dto.fechaEvento ? new Date(dto.fechaEvento) : undefined,
+        fechaEvento: dto.fechaEvento ? parseFechaEventoDia(dto.fechaEvento) : undefined,
         fechaFin: dto.fechaFin ? new Date(dto.fechaFin) : undefined,
         fechaEntrega: dto.fechaEntrega ? new Date(dto.fechaEntrega) : undefined,
         fechaRecogida: dto.fechaRecogida ? new Date(dto.fechaRecogida) : undefined,

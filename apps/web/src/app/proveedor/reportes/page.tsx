@@ -6,12 +6,14 @@ import Link from 'next/link';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
 import {
+  ESTADO_COTIZACION_COLORS,
+  ESTADO_COTIZACION_LABELS,
   ESTADO_EVENTO_PROVEEDOR_COLORS,
   ESTADO_EVENTO_PROVEEDOR_LABELS,
   formatFechaCorta,
   formatMoney,
 } from '@/lib/labels';
-import type { PortalReportes } from '@/lib/types';
+import type { PortalReporteOperacion, PortalReportes } from '@/lib/types';
 
 const AreaTrendChart = dynamic(
   () => import('@/components/ReportesCharts').then((m) => m.AreaTrendChart),
@@ -112,6 +114,24 @@ function ChartPanel({
   );
 }
 
+function estadoOperacionLabel(op: PortalReporteOperacion) {
+  if (op.tipo === 'cotizacion') {
+    const estado = op.estado as keyof typeof ESTADO_COTIZACION_LABELS;
+    return ESTADO_COTIZACION_LABELS[estado] ?? op.estado;
+  }
+  const estado = op.estado as keyof typeof ESTADO_EVENTO_PROVEEDOR_LABELS;
+  return ESTADO_EVENTO_PROVEEDOR_LABELS[estado] ?? op.estado;
+}
+
+function estadoOperacionColor(op: PortalReporteOperacion) {
+  if (op.tipo === 'cotizacion') {
+    const estado = op.estado as keyof typeof ESTADO_COTIZACION_COLORS;
+    return ESTADO_COTIZACION_COLORS[estado] ?? 'bg-slate-100 text-slate-700';
+  }
+  const estado = op.estado as keyof typeof ESTADO_EVENTO_PROVEEDOR_COLORS;
+  return ESTADO_EVENTO_PROVEEDOR_COLORS[estado] ?? 'bg-slate-100 text-slate-700';
+}
+
 export default function ProveedorReportesPage() {
   const [data, setData] = useState<PortalReportes | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,7 +167,7 @@ export default function ProveedorReportesPage() {
     <>
       <PageHeader
         title="Reportes"
-        description="Vistazo general de clientes, productos, ventas y eventos"
+        description="Visibilidad de cotizaciones, cobros, eventos y catálogo en operación"
       />
 
       {error && (
@@ -173,30 +193,57 @@ export default function ProveedorReportesPage() {
           </div>
         </div>
       ) : data ? (
+        (() => {
+          const ops = data.operaciones ?? {
+            resumen: {
+              total: data.eventos.resumen.total,
+              eventosRegistrados: data.eventos.resumen.total,
+              cotizacionesActivas: data.resumen.cotizacionesActivas ?? 0,
+              cotizacionesBorrador: 0,
+              cotizacionesEnviadas: 0,
+              cotizacionesAprobadas: 0,
+              confirmados: data.eventos.resumen.confirmados,
+              enEjecucion: data.eventos.resumen.enEjecucion,
+              completados: data.eventos.resumen.completados,
+              proximos: data.eventos.resumen.proximos,
+            },
+            porMes: data.eventos.porMes,
+            recientes: data.eventos.recientes,
+          };
+          const recientes = ops.recientes;
+
+          return (
         <div className="space-y-8">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Card className="border-teal-100 bg-gradient-to-br from-teal-50 to-white">
-              <p className="text-sm font-medium text-teal-800/70">Ventas (6 meses)</p>
+              <p className="text-sm font-medium text-teal-800/70">Ventas cobradas (6 meses)</p>
               <p className="mt-2 text-3xl font-bold text-slate-900">
                 {formatMoney(data.resumen.totalVentas)}
               </p>
+              {data.resumen.totalPipeline != null && data.resumen.totalPipeline > 0 && (
+                <p className="mt-1 text-xs text-amber-700">
+                  {formatMoney(data.resumen.totalPipeline)} por cobrar
+                </p>
+              )}
             </Card>
             <Card>
-              <p className="text-sm font-medium text-slate-500">Eventos registrados</p>
-              <p className="mt-2 text-3xl font-bold text-slate-900">{data.resumen.totalEventos}</p>
+              <p className="text-sm font-medium text-slate-500">Operaciones activas</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">
+                {data.resumen.totalOperaciones ?? data.resumen.totalEventos}
+              </p>
               <p className="mt-1 text-xs text-slate-500">
-                {data.eventos.resumen.proximos} próximos
+                {ops.resumen.eventosRegistrados} eventos · {ops.resumen.cotizacionesActivas} cotizaciones
               </p>
             </Card>
             <Card>
-              <p className="text-sm font-medium text-slate-500">Unidades rentadas</p>
+              <p className="text-sm font-medium text-slate-500">Unidades en cotizaciones</p>
               <p className="mt-2 text-3xl font-bold text-slate-900">
                 {data.resumen.productosRentados}
               </p>
-              <p className="mt-1 text-xs text-slate-500">En cotizaciones aprobadas/enviadas</p>
+              <p className="mt-1 text-xs text-slate-500">Incluye borradores, enviadas y aprobadas</p>
             </Card>
             <Card>
-              <p className="text-sm font-medium text-slate-500">Clientes activos</p>
+              <p className="text-sm font-medium text-slate-500">Clientes con actividad</p>
               <p className="mt-2 text-3xl font-bold text-slate-900">
                 {data.resumen.clientesConActividad}
               </p>
@@ -206,26 +253,28 @@ export default function ProveedorReportesPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <h2 className="mb-1 text-lg font-semibold text-slate-900">Top clientes</h2>
-              <p className="mb-4 text-sm text-slate-500">Por ingresos cobrados</p>
+              <p className="mb-4 text-sm text-slate-500">Por ingresos cobrados y cotizaciones activas</p>
               <ChartPanel
                 title="Participación en ingresos"
-                hint="¿Quién aporta más a tu facturación?"
+                hint="Cobros pagados en los últimos 6 meses"
                 className="mb-5"
               >
                 <DonutChart
-                  segments={data.topClientes.map((c) => ({
-                    label: c.nombre,
-                    value: c.totalCobrado,
-                  }))}
+                  segments={data.topClientes
+                    .filter((c) => c.totalCobrado > 0)
+                    .map((c) => ({
+                      label: c.nombre,
+                      value: c.totalCobrado,
+                    }))}
                   centerValue={formatMoney(data.resumen.totalVentas)}
-                  centerLabel="Total 6 meses"
+                  centerLabel="Cobrado 6 meses"
                 />
               </ChartPanel>
               <HorizontalCompareChart
                 items={data.topClientes.map((c) => ({
                   label: c.nombre,
-                  value: c.totalCobrado,
-                  display: formatMoney(c.totalCobrado),
+                  value: c.totalCobrado + (c.totalCotizado ?? 0),
+                  display: formatMoney(c.totalCobrado + (c.totalCotizado ?? 0)),
                 }))}
               />
               <div className="mt-5 border-t border-slate-100 pt-5">
@@ -233,9 +282,9 @@ export default function ProveedorReportesPage() {
                   items={data.topClientes}
                   renderPrimary={(c) => c.nombre}
                   renderSecondary={(c) =>
-                    `${c.cobrosPagados} cobro(s) · ${c.eventos} evento(s)`
+                    `${c.cobrosPagados} cobro(s) · ${c.cotizaciones ?? 0} cotiz. · ${c.eventos} evento(s)`
                   }
-                  renderValue={(c) => c.totalCobrado}
+                  renderValue={(c) => c.totalCobrado + (c.totalCotizado ?? 0)}
                   formatValue={(v) => formatMoney(v)}
                   max={5}
                 />
@@ -244,7 +293,7 @@ export default function ProveedorReportesPage() {
 
             <Card>
               <h2 className="mb-1 text-lg font-semibold text-slate-900">Productos más rentados</h2>
-              <p className="mb-4 text-sm text-slate-500">Por cantidad en cotizaciones confirmadas</p>
+              <p className="mb-4 text-sm text-slate-500">Por cantidad en cotizaciones activas</p>
               <ChartPanel
                 title="Comparativa de unidades"
                 hint="¿Qué mobiliario se renta más?"
@@ -312,18 +361,34 @@ export default function ProveedorReportesPage() {
                   gradientTo="#5eead4"
                 />
               </ChartPanel>
+              {data.pipelinePorMes && data.pipelinePorMes.some((p) => p.monto > 0) && (
+                <ChartPanel
+                  title="Por cobrar"
+                  hint="Cobros pendientes por mes de vencimiento"
+                  className="mt-5"
+                >
+                  <ColumnChart
+                    data={data.pipelinePorMes}
+                    valueKey="monto"
+                    labelKey="mesLabel"
+                    formatValue={(v) => formatMoney(v)}
+                    gradientFrom="#f59e0b"
+                    gradientTo="#fcd34d"
+                  />
+                </ChartPanel>
+              )}
             </Card>
 
             <Card>
-              <h2 className="mb-1 text-lg font-semibold text-slate-900">Eventos</h2>
-              <p className="mb-4 text-sm text-slate-500">Actividad y estado · últimos 6 meses</p>
+              <h2 className="mb-1 text-lg font-semibold text-slate-900">Operaciones</h2>
+              <p className="mb-4 text-sm text-slate-500">Eventos y cotizaciones · últimos 6 meses</p>
               <ChartPanel
-                title="Eventos por mes"
-                hint="Volumen de operación"
+                title="Operaciones por mes"
+                hint="Volumen de actividad"
                 className="mb-5"
               >
                 <ColumnChart
-                  data={data.eventos.porMes}
+                  data={ops.porMes}
                   valueKey="cantidad"
                   labelKey="mesLabel"
                   gradientFrom="#2563eb"
@@ -331,57 +396,41 @@ export default function ProveedorReportesPage() {
                 />
               </ChartPanel>
               <ChartPanel
-                title="Estado de eventos"
-                hint="¿Cuántos en cada etapa?"
+                title="Mix operativo"
+                hint="Eventos vs cotizaciones activas"
                 className="mb-5"
               >
                 <DonutChart
                   segments={[
                     {
-                      label: 'Confirmados',
-                      value: data.eventos.resumen.confirmados,
+                      label: 'Eventos',
+                      value: ops.resumen.eventosRegistrados,
                       color: '#3b82f6',
                     },
                     {
-                      label: 'En ejecución',
-                      value: data.eventos.resumen.enEjecucion,
+                      label: 'Cotizaciones',
+                      value: ops.resumen.cotizacionesActivas,
                       color: '#8b5cf6',
                     },
-                    {
-                      label: 'Completados',
-                      value: data.eventos.resumen.completados,
-                      color: '#10b981',
-                    },
-                    {
-                      label: 'Otros',
-                      value: Math.max(
-                        0,
-                        data.eventos.resumen.total -
-                          data.eventos.resumen.confirmados -
-                          data.eventos.resumen.enEjecucion -
-                          data.eventos.resumen.completados,
-                      ),
-                      color: '#94a3b8',
-                    },
                   ].filter((s) => s.value > 0)}
-                  centerValue={String(data.eventos.resumen.total)}
-                  centerLabel="Eventos"
+                  centerValue={String(ops.resumen.total)}
+                  centerLabel="Total"
                   size={140}
                   strokeWidth={18}
                 />
               </ChartPanel>
               <div className="flex flex-wrap gap-2">
                 <Badge className="bg-blue-50 text-blue-800">
-                  {data.eventos.resumen.confirmados} confirmados
+                  {ops.resumen.confirmados} eventos confirmados
                 </Badge>
                 <Badge className="bg-violet-50 text-violet-800">
-                  {data.eventos.resumen.enEjecucion} en ejecución
+                  {ops.resumen.cotizacionesEnviadas} cotiz. enviadas
                 </Badge>
                 <Badge className="bg-emerald-50 text-emerald-800">
-                  {data.eventos.resumen.completados} completados
+                  {ops.resumen.cotizacionesAprobadas} cotiz. aprobadas
                 </Badge>
                 <Badge className="bg-amber-50 text-amber-800">
-                  {data.eventos.resumen.proximos} próximos
+                  {ops.resumen.proximos} próximos
                 </Badge>
               </div>
             </Card>
@@ -390,35 +439,50 @@ export default function ProveedorReportesPage() {
           <Card>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Eventos recientes</h2>
-                <p className="text-sm text-slate-500">Últimos eventos registrados</p>
+                <h2 className="text-lg font-semibold text-slate-900">Actividad reciente</h2>
+                <p className="text-sm text-slate-500">Eventos y cotizaciones más recientes</p>
               </div>
               <Link href="/proveedor/calendario" className="text-sm text-teal-700 hover:underline">
                 Ver calendario →
               </Link>
             </div>
-            {data.eventos.recientes.length === 0 ? (
-              <p className="text-sm text-slate-500">Sin eventos registrados</p>
+            {recientes.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                Sin operaciones registradas. Crea una cotización o un evento en Clientes.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                      <th className="pb-3 pr-4 font-medium">Evento</th>
+                      <th className="pb-3 pr-4 font-medium">Operación</th>
                       <th className="pb-3 pr-4 font-medium">Cliente</th>
                       <th className="pb-3 pr-4 font-medium">Fecha</th>
                       <th className="pb-3 pr-4 font-medium">Estado</th>
-                      <th className="pb-3 font-medium text-right">Monto est.</th>
+                      <th className="pb-3 font-medium text-right">Monto</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.eventos.recientes.map((ev) => (
-                      <tr key={ev.id} className="border-b border-slate-100 last:border-0">
+                    {recientes.map((ev) => (
+                      <tr key={`${ev.tipo}-${ev.id}`} className="border-b border-slate-100 last:border-0">
                         <td className="py-3 pr-4">
-                          <p className="font-medium text-slate-900">{ev.titulo}</p>
-                          {ev.lugar && (
-                            <p className="text-xs text-slate-500">{ev.lugar}</p>
-                          )}
+                          <div className="flex items-start gap-2">
+                            <Badge className={ev.tipo === 'cotizacion' ? 'bg-violet-50 text-violet-800' : 'bg-blue-50 text-blue-800'}>
+                              {ev.tipo === 'cotizacion' ? 'Cotización' : 'Evento'}
+                            </Badge>
+                            <div>
+                              {ev.enlace ? (
+                                <Link href={ev.enlace} className="font-medium text-slate-900 hover:text-teal-700">
+                                  {ev.titulo}
+                                </Link>
+                              ) : (
+                                <p className="font-medium text-slate-900">{ev.titulo}</p>
+                              )}
+                              {ev.lugar && (
+                                <p className="text-xs text-slate-500">{ev.lugar}</p>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 pr-4">
                           <Link
@@ -432,8 +496,8 @@ export default function ProveedorReportesPage() {
                           {formatFechaCorta(ev.fecha)}
                         </td>
                         <td className="py-3 pr-4">
-                          <Badge className={ESTADO_EVENTO_PROVEEDOR_COLORS[ev.estado]}>
-                            {ESTADO_EVENTO_PROVEEDOR_LABELS[ev.estado]}
+                          <Badge className={estadoOperacionColor(ev)}>
+                            {estadoOperacionLabel(ev)}
                           </Badge>
                         </td>
                         <td className="py-3 text-right font-medium text-slate-900">
@@ -447,6 +511,8 @@ export default function ProveedorReportesPage() {
             )}
           </Card>
         </div>
+          );
+        })()
       ) : null}
     </>
   );

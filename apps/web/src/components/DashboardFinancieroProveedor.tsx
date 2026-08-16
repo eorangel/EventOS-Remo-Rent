@@ -186,9 +186,9 @@ export function DashboardFinancieroProveedor({
 
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <MetricTile
-            label="Eventos"
+            label="Operaciones"
             value={data.eventosMes}
-            sub={`${data.eventosActivos} activos`}
+            sub={`${data.eventosActivos} en curso${data.cotizacionesActivas ? ` · ${data.cotizacionesActivas} cotiz.` : ''}`}
             href="/proveedor/calendario"
             accent=""
           />

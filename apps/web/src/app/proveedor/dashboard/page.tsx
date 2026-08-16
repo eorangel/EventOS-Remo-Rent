@@ -119,7 +119,9 @@ export default function ProveedorDashboardPage() {
               <p className="mt-3 font-semibold text-slate-900 group-hover:text-teal-800">
                 Cotizaciones
               </p>
-              <p className="mt-1 text-sm text-slate-500">Propuestas con inventario en tiempo real</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {data.resumen.cotizacionesActivas ?? 0} activas · inventario en tiempo real
+              </p>
             </Link>
             <Link
               href="/proveedor/cobros"
