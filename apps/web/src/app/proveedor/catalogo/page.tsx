@@ -32,6 +32,7 @@ export default function ProveedorCatalogoPage() {
     cantidadDisponible: '',
     precioReferencia: '',
     descripcion: '',
+    fotoUrl: '',
     unidadMedida: 'PIEZA' as UnidadMedidaProducto,
     activo: true,
   };
@@ -72,6 +73,13 @@ export default function ProveedorCatalogoPage() {
         descripcion: form.descripcion || undefined,
         unidadMedida: form.unidadMedida,
         activo: form.activo,
+        ...(form.fotoUrl.trim()
+          ? editandoId
+            ? { fotoUrl: form.fotoUrl.trim() }
+            : { fotos: [{ url: form.fotoUrl.trim(), esPrincipal: true }] }
+          : editandoId
+            ? { fotoUrl: '' }
+            : {}),
       };
 
       if (editandoId) {
@@ -101,6 +109,7 @@ export default function ProveedorCatalogoPage() {
       cantidadDisponible: String(producto.cantidadTotal ?? producto.cantidadDisponible),
       precioReferencia: String(producto.precioReferencia ?? ''),
       descripcion: producto.descripcion ?? '',
+      fotoUrl: producto.fotos?.[0]?.url ?? '',
       unidadMedida: producto.unidadMedida ?? 'PIEZA',
       activo: producto.activo,
     });
@@ -193,6 +202,34 @@ export default function ProveedorCatalogoPage() {
               <p className="font-medium text-amber-900">
                 Vista previa: {importPreview.validas} válidas · {importPreview.invalidas} con errores
               </p>
+              {importPreview.filas?.length > 0 && (
+                <div className="mt-3 max-h-48 overflow-auto rounded-lg border border-amber-100 bg-white text-xs">
+                  <table className="w-full">
+                    <thead className="bg-amber-50/80 text-left text-slate-600">
+                      <tr>
+                        <th className="px-2 py-1">Producto</th>
+                        <th className="px-2 py-1">Foto</th>
+                        <th className="px-2 py-1">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.filas.slice(0, 12).map((fila) => (
+                        <tr key={fila.fila} className="border-t border-slate-100">
+                          <td className="px-2 py-1">{fila.nombre}</td>
+                          <td className="px-2 py-1 text-slate-500">{fila.fotoUrl ? 'Sí' : '—'}</td>
+                          <td className="px-2 py-1">
+                            {fila.valido ? (
+                              <span className="text-emerald-700">OK</span>
+                            ) : (
+                              <span className="text-red-600">{fila.errores.join('; ')}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               <Button type="button" className="mt-3" disabled={importando || importPreview.validas === 0} onClick={confirmarImportacionExcel}>
                 Confirmar importación
               </Button>
@@ -282,6 +319,28 @@ export default function ProveedorCatalogoPage() {
                   className="w-full text-sm"
                 />
               </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  URL de fotografía (opcional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={form.fotoUrl}
+                  onChange={(e) => setForm({ ...form, fotoUrl: e.target.value })}
+                  className="w-full text-sm"
+                />
+                {form.fotoUrl.trim() && (
+                  <img
+                    src={form.fotoUrl.trim()}
+                    alt="Vista previa"
+                    className="mt-2 h-16 w-16 rounded-lg border object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                )}
+              </div>
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
@@ -333,13 +392,24 @@ export default function ProveedorCatalogoPage() {
                 {productos.map((p) => (
                   <div
                     key={p.id}
-                    className={`rounded-xl border px-4 py-3 ${
+                    className={`flex gap-3 rounded-xl border px-4 py-3 ${
                       editandoId === p.id
                         ? 'border-teal-400 bg-teal-50/40'
                         : 'border-slate-200'
                     }`}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                    {p.fotos?.[0]?.url ? (
+                      <img
+                        src={p.fotos[0].url}
+                        alt={p.nombre}
+                        className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">
+                        Sin foto
+                      </div>
+                    )}
+                    <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium text-slate-900">{p.nombre}</p>

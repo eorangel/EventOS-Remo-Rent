@@ -95,6 +95,11 @@ export class UpdateProductoProveedorDto {
   @IsOptional()
   @IsBoolean()
   activo?: boolean;
+
+  /** Si se envía, reemplaza la foto principal del producto (vacío = quitar fotos). */
+  @IsOptional()
+  @IsString()
+  fotoUrl?: string | null;
 }
 
 export class CreateCoberturaDto {

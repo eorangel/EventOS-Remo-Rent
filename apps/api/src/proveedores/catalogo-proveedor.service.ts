@@ -89,12 +89,33 @@ export class CatalogoProveedorService {
 
   async updateProducto(proveedorId: string, id: string, dto: UpdateProductoProveedorDto) {
     await this.getProducto(proveedorId, id);
-    const producto = await this.prisma.productoProveedor.update({
+    const { fotoUrl, ...data } = dto;
+    await this.prisma.productoProveedor.update({
       where: { id },
-      data: dto,
-      include: productoInclude,
+      data,
     });
-    return this.mapProducto(producto);
+    if (fotoUrl !== undefined) {
+      await this.syncFotoPrincipal(id, fotoUrl);
+    }
+    return this.getProducto(proveedorId, id);
+  }
+
+  /** Una sola foto principal por producto (portal + Excel). */
+  private async syncFotoPrincipal(productoId: string, fotoUrl: string | null | undefined) {
+    await this.prisma.fotoProductoProveedor.deleteMany({
+      where: { productoProveedorId: productoId },
+    });
+    const url = fotoUrl?.trim();
+    if (url) {
+      await this.prisma.fotoProductoProveedor.create({
+        data: {
+          productoProveedorId: productoId,
+          url,
+          esPrincipal: true,
+          orden: 0,
+        },
+      });
+    }
   }
 
   async removeProducto(proveedorId: string, id: string) {
@@ -219,17 +240,7 @@ export class CatalogoProveedorService {
           },
         });
         if (fila.fotoUrl) {
-          await this.prisma.fotoProductoProveedor.deleteMany({
-            where: { productoProveedorId: existenteId },
-          });
-          await this.prisma.fotoProductoProveedor.create({
-            data: {
-              productoProveedorId: existenteId,
-              url: fila.fotoUrl,
-              esPrincipal: true,
-              orden: 0,
-            },
-          });
+          await this.syncFotoPrincipal(existenteId, fila.fotoUrl);
         }
         actualizados += 1;
       } else {

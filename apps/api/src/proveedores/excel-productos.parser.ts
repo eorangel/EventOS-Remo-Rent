@@ -82,6 +82,37 @@ function buildHeaderMap(headers: string[]): Map<string, string> {
   return map;
 }
 
+function normalizeFotoUrl(value: unknown): string | undefined {
+  if (value == null || value === '') return undefined;
+  let url = String(value).trim();
+  if (!url) return undefined;
+  if (!/^https?:\/\//i.test(url)) {
+    if (/^www\./i.test(url) || /^[\w.-]+\.[a-z]{2,}/i.test(url)) {
+      url = `https://${url.replace(/^\/\//, '')}`;
+    } else {
+      return undefined;
+    }
+  }
+  return url;
+}
+
+function fotoFromSheetCell(
+  sheet: XLSX.WorkSheet,
+  rowIndex: number,
+  colIndex: number,
+  fallback: unknown,
+): string | undefined {
+  if (colIndex >= 0) {
+    const addr = XLSX.utils.encode_cell({ r: rowIndex + 1, c: colIndex });
+    const cell = sheet[addr] as { l?: { Target?: string }; v?: unknown } | undefined;
+    if (cell?.l?.Target) {
+      const fromLink = normalizeFotoUrl(cell.l.Target);
+      if (fromLink) return fromLink;
+    }
+  }
+  return normalizeFotoUrl(fallback);
+}
+
 function isRowEmpty(row: Record<string, unknown>): boolean {
   return Object.values(row).every((v) => v == null || String(v).trim() === '');
 }
@@ -105,6 +136,8 @@ export function parseProductosExcel(buffer: Buffer): FilaProductoExcel[] {
 
   const headers = Object.keys(rows[0] ?? {});
   const headerMap = buildHeaderMap(headers);
+  const fotoHeader = headerMap.get('foto');
+  const fotoColIndex = fotoHeader ? headers.indexOf(fotoHeader) : -1;
 
   if (!headerMap.has('nombre')) {
     throw new Error(
@@ -140,9 +173,9 @@ export function parseProductosExcel(buffer: Buffer): FilaProductoExcel[] {
     const fotoRaw = cellValue(row, 'foto', headerMap);
     const unidadMedida = parseUnidad(cellValue(row, 'unidad', headerMap));
 
-    const fotoUrl = fotoRaw ? String(fotoRaw).trim() : undefined;
-    if (fotoUrl && !/^https?:\/\//i.test(fotoUrl)) {
-      errores.push('URL de foto debe comenzar con http:// o https://');
+    const fotoUrl = fotoFromSheetCell(sheet, index, fotoColIndex, fotoRaw);
+    if (fotoRaw && String(fotoRaw).trim() && !fotoUrl) {
+      errores.push('URL de foto inválida — use http:// o https:// (o enlace en la celda de Excel)');
     }
 
     result.push({
