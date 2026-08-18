@@ -11,6 +11,7 @@ import {
   FotoProductoDto,
   UpdateProductoProveedorDto,
 } from './dto/catalogo.dto';
+import { UpdateServicioProveedorDto } from './dto/banquete.dto';
 import {
   buildPlantillaExcel,
   FilaProductoExcel,
@@ -207,6 +208,19 @@ export class CatalogoProveedorService {
         precioReferencia: dto.precioReferencia,
         activo: dto.activo,
       },
+    });
+    return this.mapServicio(s);
+  }
+
+  async updateServicio(proveedorId: string, id: string, dto: UpdateServicioProveedorDto) {
+    await this.ensureProveedor(proveedorId);
+    const existing = await this.prisma.servicioProveedor.findFirst({
+      where: { id, proveedorId },
+    });
+    if (!existing) throw new NotFoundException('Servicio no encontrado');
+    const s = await this.prisma.servicioProveedor.update({
+      where: { id },
+      data: dto,
     });
     return this.mapServicio(s);
   }

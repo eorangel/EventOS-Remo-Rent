@@ -273,6 +273,7 @@ model Proveedor {
   productos   ProductoProveedor[]
   coberturas  CoberturaProveedor[]
   servicios   ServicioProveedor[]
+  menusBanquete MenuBanqueteProveedor[]
   usuarios    Usuario[]
   clientesPortal ClienteProveedor[]
   ordenesCobro   OrdenCobro[]
@@ -348,9 +349,61 @@ model ServicioProveedor {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  proveedor       Proveedor                 @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  cotizacionItems CotizacionProveedorItem[]
 
   @@index([proveedorId])
+}
+
+enum SeccionPlatilloMenu {
+  ENTRADA
+  SOPA
+  PLATO_FUERTE
+  GUARNICION
+  POSTRE
+  BEBIDA
+  OTRO
+}
+
+enum ModalidadPrecioMenu {
+  POR_PERSONA
+  POR_EVENTO
+}
+
+model MenuBanqueteProveedor {
+  id               String   @id @default(cuid())
+  proveedorId      String
+  nombre           String
+  descripcion      String?  @db.Text
+  precioPorPersona Decimal? @db.Decimal(12, 2)
+  precioPorEvento  Decimal? @db.Decimal(12, 2)
+  minimoPersonas   Int?
+  incluyeBebidas   Boolean  @default(false)
+  incluyeMeseros   Boolean  @default(false)
+  notas            String?  @db.Text
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  proveedor       Proveedor                 @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  platillos       PlatilloMenuBanquete[]
+  cotizacionItems CotizacionProveedorItem[]
+
+  @@index([proveedorId])
+  @@index([activo])
+}
+
+model PlatilloMenuBanquete {
+  id          String              @id @default(cuid())
+  menuId      String
+  seccion     SeccionPlatilloMenu @default(OTRO)
+  nombre      String
+  descripcion String?
+  orden       Int                 @default(0)
+
+  menu MenuBanqueteProveedor @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@index([menuId])
 }
 
 model Vehiculo {
@@ -643,19 +696,26 @@ model CotizacionProveedor {
 }
 
 model CotizacionProveedorItem {
-  id                    String  @id @default(cuid())
-  cotizacionProveedorId String
-  productoProveedorId   String?
-  descripcion           String
-  cantidad              Int     @default(1)
-  precioUnitario        Decimal @db.Decimal(12, 2)
-  subtotal              Decimal @db.Decimal(12, 2)
+  id                      String               @id @default(cuid())
+  cotizacionProveedorId   String
+  productoProveedorId     String?
+  menuBanqueteProveedorId String?
+  servicioProveedorId     String?
+  modalidadPrecioMenu     ModalidadPrecioMenu?
+  descripcion             String
+  cantidad                Int                  @default(1)
+  precioUnitario          Decimal              @db.Decimal(12, 2)
+  subtotal                Decimal              @db.Decimal(12, 2)
 
-  cotizacion        CotizacionProveedor @relation(fields: [cotizacionProveedorId], references: [id], onDelete: Cascade)
-  productoProveedor ProductoProveedor?  @relation(fields: [productoProveedorId], references: [id], onDelete: SetNull)
+  cotizacion        CotizacionProveedor  @relation(fields: [cotizacionProveedorId], references: [id], onDelete: Cascade)
+  productoProveedor ProductoProveedor?   @relation(fields: [productoProveedorId], references: [id], onDelete: SetNull)
+  menuBanquete      MenuBanqueteProveedor? @relation(fields: [menuBanqueteProveedorId], references: [id], onDelete: SetNull)
+  servicioProveedor ServicioProveedor?     @relation(fields: [servicioProveedorId], references: [id], onDelete: SetNull)
 
   @@index([cotizacionProveedorId])
   @@index([productoProveedorId])
+  @@index([menuBanqueteProveedorId])
+  @@index([servicioProveedorId])
 }
 
 model EventoClienteProveedor {

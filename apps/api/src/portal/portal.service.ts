@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { calcSubtotal, roundMoney, toNumber } from '../common/utils/pricing';
 import { AuthUser, requireProveedorUser } from '../common/utils/user-context';
 import { CatalogoProveedorService } from '../proveedores/catalogo-proveedor.service';
+import { CatalogoBanqueteService } from '../proveedores/catalogo-banquete.service';
 import {
   parseFechaEventoDia,
   rangoConsultaUTC,
@@ -61,11 +62,40 @@ const ESTADOS_COTIZACION_OPERATIVA: EstadoCotizacion[] = [
   EstadoCotizacion.APROBADA,
 ];
 
+const COTIZACION_ITEMS_INCLUDE = {
+  productoProveedor: { select: { id: true, nombre: true, categoria: true } },
+  menuBanquete: { select: { id: true, nombre: true } },
+  servicioProveedor: { select: { id: true, nombre: true } },
+} as const;
+
+function mapCotizacionItemCreate(item: {
+  productoProveedorId?: string;
+  menuBanqueteProveedorId?: string;
+  servicioProveedorId?: string;
+  modalidadPrecioMenu?: 'POR_PERSONA' | 'POR_EVENTO';
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+}) {
+  return {
+    productoProveedorId: item.productoProveedorId ?? null,
+    menuBanqueteProveedorId: item.menuBanqueteProveedorId ?? null,
+    servicioProveedorId: item.servicioProveedorId ?? null,
+    modalidadPrecioMenu: item.modalidadPrecioMenu ?? null,
+    descripcion: item.descripcion,
+    cantidad: item.cantidad,
+    precioUnitario: item.precioUnitario,
+    subtotal: item.subtotal,
+  };
+}
+
 @Injectable()
 export class PortalService {
   constructor(
     private prisma: PrismaService,
     private catalogoService: CatalogoProveedorService,
+    private banqueteService: CatalogoBanqueteService,
   ) {}
 
   async getDashboard(user: AuthUser) {
@@ -1728,7 +1758,7 @@ export class PortalService {
       },
       include: {
         clienteProveedor: true,
-        items: { include: { productoProveedor: { select: { id: true, nombre: true } } } },
+        items: { include: COTIZACION_ITEMS_INCLUDE },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -1742,7 +1772,7 @@ export class PortalService {
       include: {
         clienteProveedor: true,
         items: {
-          include: { productoProveedor: { select: { id: true, nombre: true, categoria: true } } },
+          include: COTIZACION_ITEMS_INCLUDE,
           orderBy: { id: 'asc' },
         },
       },
@@ -1765,7 +1795,7 @@ export class PortalService {
     }
 
     if (!dto.items?.length) {
-      throw new BadRequestException('Agrega al menos un producto a la cotización');
+      throw new BadRequestException('Agrega al menos un concepto a la cotización');
     }
 
     const perfil = await this.prisma.perfilEmpresaProveedor.findUnique({
@@ -1812,13 +1842,7 @@ export class PortalService {
       notas: dto.notas,
       validoHasta: dto.validoHasta ? new Date(dto.validoHasta) : undefined,
       items: {
-        create: itemsData.map((item) => ({
-          productoProveedorId: item.productoProveedorId,
-          descripcion: item.descripcion,
-          cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario,
-          subtotal: item.subtotal,
-        })),
+        create: itemsData.map(mapCotizacionItemCreate),
       },
     };
 
@@ -1846,7 +1870,7 @@ export class PortalService {
           },
           include: {
             clienteProveedor: true,
-            items: { include: { productoProveedor: { select: { id: true, nombre: true } } } },
+            items: { include: COTIZACION_ITEMS_INCLUDE },
           },
         });
       });
@@ -1875,7 +1899,7 @@ export class PortalService {
       },
       include: {
         clienteProveedor: true,
-        items: { include: { productoProveedor: { select: { id: true, nombre: true } } } },
+        items: { include: COTIZACION_ITEMS_INCLUDE },
       },
     });
 
@@ -1902,6 +1926,9 @@ export class PortalService {
 
     let itemsData: Array<{
       productoProveedorId?: string;
+      menuBanqueteProveedorId?: string;
+      servicioProveedorId?: string;
+      modalidadPrecioMenu?: 'POR_PERSONA' | 'POR_EVENTO';
       descripcion: string;
       cantidad: number;
       precioUnitario: number;
@@ -1910,7 +1937,7 @@ export class PortalService {
 
     if (dto.items) {
       if (!dto.items.length) {
-        throw new BadRequestException('La cotización debe tener al menos un producto');
+        throw new BadRequestException('La cotización debe tener al menos un concepto');
       }
       itemsData = await this.resolveCotizacionItems(proveedorId, dto.items);
       await this.prisma.cotizacionProveedorItem.deleteMany({
@@ -1922,6 +1949,9 @@ export class PortalService {
       });
       itemsData = currentItems.map((i) => ({
         productoProveedorId: i.productoProveedorId ?? undefined,
+        menuBanqueteProveedorId: i.menuBanqueteProveedorId ?? undefined,
+        servicioProveedorId: i.servicioProveedorId ?? undefined,
+        modalidadPrecioMenu: i.modalidadPrecioMenu ?? undefined,
         descripcion: i.descripcion,
         cantidad: i.cantidad,
         precioUnitario: toNumber(i.precioUnitario),
@@ -1977,20 +2007,14 @@ export class PortalService {
         ...(dto.items
           ? {
               items: {
-                create: itemsData.map((item) => ({
-                  productoProveedorId: item.productoProveedorId,
-                  descripcion: item.descripcion,
-                  cantidad: item.cantidad,
-                  precioUnitario: item.precioUnitario,
-                  subtotal: item.subtotal,
-                })),
+                create: itemsData.map(mapCotizacionItemCreate),
               },
             }
           : {}),
       },
       include: {
         clienteProveedor: true,
-        items: { include: { productoProveedor: { select: { id: true, nombre: true } } } },
+        items: { include: COTIZACION_ITEMS_INCLUDE },
       },
     });
 
@@ -2104,6 +2128,9 @@ export class PortalService {
     proveedorId: string,
     items: Array<{
       productoProveedorId?: string;
+      menuBanqueteProveedorId?: string;
+      servicioProveedorId?: string;
+      modalidadPrecioMenu?: 'POR_PERSONA' | 'POR_EVENTO';
       descripcion: string;
       cantidad: number;
       precioUnitario: number;
@@ -2112,23 +2139,105 @@ export class PortalService {
     const productIds = items
       .map((i) => i.productoProveedorId)
       .filter((id): id is string => !!id);
+    const menuIds = items
+      .map((i) => i.menuBanqueteProveedorId)
+      .filter((id): id is string => !!id);
+    const servicioIds = items
+      .map((i) => i.servicioProveedorId)
+      .filter((id): id is string => !!id);
 
-    const productos =
-      productIds.length > 0
-        ? await this.prisma.productoProveedor.findMany({
+    const [productos, menus, servicios] = await Promise.all([
+      productIds.length
+        ? this.prisma.productoProveedor.findMany({
             where: { proveedorId, id: { in: productIds } },
           })
-        : [];
+        : [],
+      menuIds.length
+        ? this.prisma.menuBanqueteProveedor.findMany({
+            where: { proveedorId, id: { in: menuIds } },
+          })
+        : [],
+      servicioIds.length
+        ? this.prisma.servicioProveedor.findMany({
+            where: { proveedorId, id: { in: servicioIds } },
+          })
+        : [],
+    ]);
+
     const productoMap = new Map(productos.map((p) => [p.id, p]));
+    const menuMap = new Map(
+      menus.map((m) => [
+        m.id,
+        {
+          id: m.id,
+          nombre: m.nombre,
+          precioPorPersona:
+            m.precioPorPersona != null ? toNumber(m.precioPorPersona) : null,
+          precioPorEvento: m.precioPorEvento != null ? toNumber(m.precioPorEvento) : null,
+          minimoPersonas: m.minimoPersonas,
+        },
+      ]),
+    );
+    const servicioMap = new Map(servicios.map((s) => [s.id, s]));
 
     return items.map((item) => {
+      const refs = [
+        item.productoProveedorId,
+        item.menuBanqueteProveedorId,
+        item.servicioProveedorId,
+      ].filter(Boolean);
+      if (refs.length > 1) {
+        throw new BadRequestException(
+          'Cada línea debe referenciar un solo concepto del catálogo',
+        );
+      }
+
+      if (item.menuBanqueteProveedorId) {
+        const menu = menuMap.get(item.menuBanqueteProveedorId);
+        if (!menu) {
+          throw new BadRequestException('Menú de banquete no encontrado');
+        }
+        if (!item.modalidadPrecioMenu) {
+          throw new BadRequestException('Indica si el menú se cotiza por persona o por evento');
+        }
+        const override = item.precioUnitario;
+        return this.banqueteService.resolveMenuLine(
+          menu,
+          item.modalidadPrecioMenu,
+          item.cantidad,
+          override,
+        );
+      }
+
+      if (item.servicioProveedorId) {
+        const servicio = servicioMap.get(item.servicioProveedorId);
+        if (!servicio) {
+          throw new BadRequestException('Servicio no encontrado');
+        }
+        const descripcion = item.descripcion.trim() || servicio.nombre;
+        const precioUnitario = roundMoney(
+          item.precioUnitario ??
+            (servicio.precioReferencia != null ? toNumber(servicio.precioReferencia) : 0),
+        );
+        if (precioUnitario < 0) {
+          throw new BadRequestException('Precio unitario inválido');
+        }
+        return {
+          servicioProveedorId: servicio.id,
+          descripcion,
+          cantidad: item.cantidad,
+          precioUnitario,
+          subtotal: calcSubtotal(precioUnitario, item.cantidad),
+        };
+      }
+
       const producto = item.productoProveedorId
         ? productoMap.get(item.productoProveedorId)
         : undefined;
       if (item.productoProveedorId && !producto) {
         throw new BadRequestException('Producto del catálogo no encontrado');
       }
-      const descripcion = item.descripcion.trim() || producto?.nombre || 'Producto';
+      const descripcion = item.descripcion.trim() || producto?.nombre || 'Concepto';
       const precioUnitario = roundMoney(
         item.precioUnitario ?? (producto ? toNumber(producto.precioReferencia) : 0),
       );

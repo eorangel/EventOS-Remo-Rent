@@ -9,6 +9,7 @@ import { abrirPdfHtml, calcTotalesCotizacion, rangoFechaConsulta } from '@/lib/c
 import {
   ESTADO_COTIZACION_COLORS,
   ESTADO_COTIZACION_LABELS,
+  MODALIDAD_PRECIO_MENU_LABELS,
   formatMoney,
 } from '@/lib/labels';
 import type {
@@ -16,13 +17,19 @@ import type {
   CotizacionPdfResponse,
   CotizacionProveedor,
   EstadoCotizacion,
+  MenuBanqueteProveedor,
+  ModalidadPrecioMenu,
   PerfilEmpresaResponse,
   ProductoProveedorInventario,
+  ServicioProveedor,
 } from '@/lib/types';
 
 type LineItem = {
   key: string;
   productoProveedorId?: string;
+  servicioProveedorId?: string;
+  menuBanqueteProveedorId?: string;
+  modalidadPrecioMenu?: ModalidadPrecioMenu;
   descripcion: string;
   cantidad: number;
   precioUnitario: number;
@@ -53,6 +60,8 @@ export function CotizacionProveedorForm({
   const router = useRouter();
   const [clientes, setClientes] = useState<ClienteProveedor[]>([]);
   const [productos, setProductos] = useState<ProductoProveedorInventario[]>([]);
+  const [servicios, setServicios] = useState<ServicioProveedor[]>([]);
+  const [menus, setMenus] = useState<MenuBanqueteProveedor[]>([]);
   const [perfil, setPerfil] = useState<PerfilEmpresaResponse | null>(null);
   const [saving, setSaving] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
@@ -90,6 +99,9 @@ export function CotizacionProveedorForm({
       ? initialData.items.map((i) => ({
           key: i.id ?? crypto.randomUUID(),
           productoProveedorId: i.productoProveedorId ?? undefined,
+          servicioProveedorId: i.servicioProveedorId ?? undefined,
+          menuBanqueteProveedorId: i.menuBanqueteProveedorId ?? undefined,
+          modalidadPrecioMenu: i.modalidadPrecioMenu ?? undefined,
           descripcion: i.descripcion,
           cantidad: i.cantidad,
           precioUnitario: i.precioUnitario,
@@ -97,10 +109,19 @@ export function CotizacionProveedorForm({
       : [newLine()],
   );
   const [productoPick, setProductoPick] = useState('');
+  const [servicioPick, setServicioPick] = useState('');
+  const [menuPick, setMenuPick] = useState('');
+  const [menuModalidad, setMenuModalidad] = useState<ModalidadPrecioMenu>('POR_PERSONA');
 
   useEffect(() => {
     apiFetch<ClienteProveedor[]>('/portal/clientes').then((c) =>
       setClientes(c.filter((x) => x.activo)),
+    );
+    apiFetch<ServicioProveedor[]>('/portal/servicios').then((s) =>
+      setServicios(s.filter((x) => x.activo)),
+    );
+    apiFetch<MenuBanqueteProveedor[]>('/portal/menus-banquete').then((m) =>
+      setMenus(m.filter((x) => x.activo)),
     );
     apiFetch<PerfilEmpresaResponse>('/portal/empresa').then((e) => {
       setPerfil(e);
@@ -163,6 +184,60 @@ export function CotizacionProveedorForm({
     setProductoPick('');
   }
 
+  function agregarServicio() {
+    const serv = servicios.find((s) => s.id === servicioPick);
+    if (!serv) return;
+    setLines((prev) => [
+      ...prev,
+      {
+        key: crypto.randomUUID(),
+        servicioProveedorId: serv.id,
+        descripcion: serv.nombre,
+        cantidad: 1,
+        precioUnitario: serv.precioReferencia ?? 0,
+      },
+    ]);
+    setServicioPick('');
+  }
+
+  function modalidadesMenu(menu: MenuBanqueteProveedor): ModalidadPrecioMenu[] {
+    const opts: ModalidadPrecioMenu[] = [];
+    if (menu.precioPorPersona != null) opts.push('POR_PERSONA');
+    if (menu.precioPorEvento != null) opts.push('POR_EVENTO');
+    return opts;
+  }
+
+  function agregarMenu() {
+    const menu = menus.find((m) => m.id === menuPick);
+    if (!menu) return;
+    const opts = modalidadesMenu(menu);
+    const modalidad = opts.includes(menuModalidad) ? menuModalidad : opts[0];
+    if (!modalidad) {
+      alert('Este menú no tiene precios configurados');
+      return;
+    }
+    const precio =
+      modalidad === 'POR_PERSONA'
+        ? (menu.precioPorPersona ?? 0)
+        : (menu.precioPorEvento ?? 0);
+    const cantidad =
+      modalidad === 'POR_PERSONA'
+        ? Math.max(menu.minimoPersonas ?? 1, 1)
+        : 1;
+    setLines((prev) => [
+      ...prev,
+      {
+        key: crypto.randomUUID(),
+        menuBanqueteProveedorId: menu.id,
+        modalidadPrecioMenu: modalidad,
+        descripcion: `${menu.nombre} (${MODALIDAD_PRECIO_MENU_LABELS[modalidad].toLowerCase()})`,
+        cantidad,
+        precioUnitario: precio,
+      },
+    ]);
+    setMenuPick('');
+  }
+
   function actualizarLinea(key: string, patch: Partial<LineItem>) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
@@ -176,6 +251,9 @@ export function CotizacionProveedorForm({
       .filter((l) => l.descripcion.trim())
       .map((l) => ({
         productoProveedorId: l.productoProveedorId,
+        servicioProveedorId: l.servicioProveedorId,
+        menuBanqueteProveedorId: l.menuBanqueteProveedorId,
+        modalidadPrecioMenu: l.modalidadPrecioMenu,
         descripcion: l.descripcion.trim(),
         cantidad: Number(l.cantidad),
         precioUnitario: Number(l.precioUnitario),
@@ -208,7 +286,7 @@ export function CotizacionProveedorForm({
       return;
     }
     if (!items.length) {
-      alert('Agrega al menos un producto');
+      alert('Agrega al menos un concepto');
       return;
     }
     if (fechaEvento) {
@@ -466,26 +544,102 @@ export function CotizacionProveedorForm({
 
         <Card>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">Productos</h2>
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={productoPick}
-                onChange={(e) => setProductoPick(e.target.value)}
-                className="min-w-[180px] text-sm"
-              >
-                <option value="">Del catálogo...</option>
-                {productos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} — {formatMoney(p.precioReferencia)}
-                    {fechaEvento
-                      ? ` · disp. ${p.cantidadDisponible}/${p.cantidadTotal ?? p.cantidadDisponible}`
-                      : ''}
-                  </option>
-                ))}
-              </select>
-              <Button type="button" variant="secondary" onClick={agregarProducto} disabled={!productoPick}>
-                Agregar
-              </Button>
+            <h2 className="text-lg font-semibold">Conceptos</h2>
+            <div className="flex flex-col gap-2 sm:items-end">
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={productoPick}
+                  onChange={(e) => setProductoPick(e.target.value)}
+                  className="min-w-[160px] text-sm"
+                >
+                  <option value="">Producto...</option>
+                  {productos.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre} — {formatMoney(p.precioReferencia)}
+                      {fechaEvento
+                        ? ` · disp. ${p.cantidadDisponible}/${p.cantidadTotal ?? p.cantidadDisponible}`
+                        : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={agregarProducto}
+                  disabled={!productoPick}
+                >
+                  + Producto
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={servicioPick}
+                  onChange={(e) => setServicioPick(e.target.value)}
+                  className="min-w-[160px] text-sm"
+                >
+                  <option value="">Servicio...</option>
+                  {servicios.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nombre}
+                      {s.precioReferencia != null ? ` — ${formatMoney(s.precioReferencia)}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={agregarServicio}
+                  disabled={!servicioPick}
+                >
+                  + Servicio
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={menuPick}
+                  onChange={(e) => {
+                    setMenuPick(e.target.value);
+                    const m = menus.find((x) => x.id === e.target.value);
+                    if (m) {
+                      const opts = modalidadesMenu(m);
+                      if (opts.length) setMenuModalidad(opts[0]);
+                    }
+                  }}
+                  className="min-w-[160px] text-sm"
+                >
+                  <option value="">Menú banquete...</option>
+                  {menus.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre}
+                      {m.precioPorPersona != null ? ` · ${formatMoney(m.precioPorPersona)}/pers.` : ''}
+                      {m.precioPorEvento != null ? ` · ${formatMoney(m.precioPorEvento)}/evt.` : ''}
+                    </option>
+                  ))}
+                </select>
+                {menuPick && (() => {
+                  const m = menus.find((x) => x.id === menuPick);
+                  const opts = m ? modalidadesMenu(m) : [];
+                  if (opts.length < 2) return null;
+                  return (
+                    <select
+                      value={menuModalidad}
+                      onChange={(e) =>
+                        setMenuModalidad(e.target.value as ModalidadPrecioMenu)
+                      }
+                      className="text-sm"
+                    >
+                      {opts.map((o) => (
+                        <option key={o} value={o}>
+                          {MODALIDAD_PRECIO_MENU_LABELS[o]}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
+                <Button type="button" variant="secondary" onClick={agregarMenu} disabled={!menuPick}>
+                  + Menú
+                </Button>
+              </div>
               <Button type="button" variant="secondary" onClick={() => setLines((p) => [...p, newLine()])}>
                 Línea manual
               </Button>
@@ -542,6 +696,15 @@ export function CotizacionProveedorForm({
                     Excede disponibilidad: {inv.usadoEnLineas} solicitadas,{' '}
                     {inv.prod.cantidadDisponible} disponibles
                   </p>
+                )}
+                {line.menuBanqueteProveedorId && line.modalidadPrecioMenu && (
+                  <p className="col-span-full text-xs text-teal-700">
+                    Menú · {MODALIDAD_PRECIO_MENU_LABELS[line.modalidadPrecioMenu]}
+                    {line.modalidadPrecioMenu === 'POR_EVENTO' ? ' (cantidad fija: 1)' : ''}
+                  </p>
+                )}
+                {line.servicioProveedorId && (
+                  <p className="col-span-full text-xs text-teal-700">Servicio del catálogo</p>
                 )}
               </div>
             );
@@ -651,7 +814,7 @@ export function CotizacionProveedorForm({
 
           <dl className="mt-4 space-y-2 border-t border-slate-200 pt-4 text-sm">
             <div className="flex justify-between">
-              <dt className="text-slate-500">Subtotal productos</dt>
+              <dt className="text-slate-500">Subtotal conceptos</dt>
               <dd>{formatMoney(totales.subtotal)}</dd>
             </div>
             <div className="flex justify-between">

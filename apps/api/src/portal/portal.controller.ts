@@ -23,10 +23,17 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { getAuthUser } from '../common/utils/request-user';
 import { requireProveedorUser } from '../common/utils/user-context';
 import { CatalogoProveedorService } from '../proveedores/catalogo-proveedor.service';
+import { CatalogoBanqueteService } from '../proveedores/catalogo-banquete.service';
 import {
   CreateProductoProveedorDto,
   UpdateProductoProveedorDto,
+  CreateServicioDto,
 } from '../proveedores/dto/catalogo.dto';
+import {
+  CreateMenuBanqueteDto,
+  UpdateMenuBanqueteDto,
+  UpdateServicioProveedorDto,
+} from '../proveedores/dto/banquete.dto';
 import {
   CreateClienteProveedorDto,
   CreateEventoClienteDto,
@@ -51,6 +58,7 @@ export class PortalController {
   constructor(
     private portalService: PortalService,
     private catalogoService: CatalogoProveedorService,
+    private banqueteService: CatalogoBanqueteService,
   ) {}
 
   @Get('dashboard')
@@ -386,5 +394,67 @@ export class PortalController {
   removeProducto(@Req() req: Request, @Param('id') id: string) {
     const proveedorId = requireProveedorUser(getAuthUser(req));
     return this.catalogoService.removeProducto(proveedorId, id);
+  }
+
+  @Get('servicios')
+  listServicios(@Req() req: Request) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.catalogoService.listServicios(proveedorId);
+  }
+
+  @Post('servicios')
+  createServicio(@Req() req: Request, @Body() dto: CreateServicioDto) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.catalogoService.createServicio(proveedorId, dto);
+  }
+
+  @Patch('servicios/:id')
+  updateServicio(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: UpdateServicioProveedorDto,
+  ) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.catalogoService.updateServicio(proveedorId, id, dto);
+  }
+
+  @Delete('servicios/:id')
+  removeServicio(@Req() req: Request, @Param('id') id: string) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.catalogoService.removeServicio(proveedorId, id);
+  }
+
+  @Get('menus-banquete')
+  listMenusBanquete(@Req() req: Request) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.banqueteService.listMenus(proveedorId);
+  }
+
+  @Get('menus-banquete/:id')
+  getMenuBanquete(@Req() req: Request, @Param('id') id: string) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.banqueteService.getMenu(proveedorId, id);
+  }
+
+  @Post('menus-banquete')
+  createMenuBanquete(@Req() req: Request, @Body() dto: CreateMenuBanqueteDto) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.banqueteService.createMenu(proveedorId, dto);
+  }
+
+  @Patch('menus-banquete/:id')
+  updateMenuBanquete(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: UpdateMenuBanqueteDto,
+  ) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.banqueteService.updateMenu(proveedorId, id, dto);
+  }
+
+  @Delete('menus-banquete/:id')
+  removeMenuBanquete(@Req() req: Request, @Param('id') id: string) {
+    const proveedorId = requireProveedorUser(getAuthUser(req));
+    return this.banqueteService.removeMenu(proveedorId, id);
   }
 }

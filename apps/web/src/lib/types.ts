@@ -178,11 +178,16 @@ export type ClienteHistorial = {
 export type CotizacionProveedorItem = {
   id?: string;
   productoProveedorId?: string | null;
+  menuBanqueteProveedorId?: string | null;
+  servicioProveedorId?: string | null;
+  modalidadPrecioMenu?: ModalidadPrecioMenu | null;
   descripcion: string;
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
   productoProveedor?: { id: string; nombre: string; categoria?: string | null } | null;
+  menuBanquete?: { id: string; nombre: string } | null;
+  servicioProveedor?: { id: string; nombre: string } | null;
 };
 
 export type CotizacionProveedor = {
@@ -531,6 +536,40 @@ export type ServicioProveedor = {
   descripcion?: string | null;
   precioReferencia?: number | null;
   activo: boolean;
+};
+
+export type SeccionPlatilloMenu =
+  | 'ENTRADA'
+  | 'SOPA'
+  | 'PLATO_FUERTE'
+  | 'GUARNICION'
+  | 'POSTRE'
+  | 'BEBIDA'
+  | 'OTRO';
+
+export type ModalidadPrecioMenu = 'POR_PERSONA' | 'POR_EVENTO';
+
+export type PlatilloMenuBanquete = {
+  id?: string;
+  seccion: SeccionPlatilloMenu;
+  nombre: string;
+  descripcion?: string | null;
+  orden?: number;
+};
+
+export type MenuBanqueteProveedor = {
+  id: string;
+  proveedorId: string;
+  nombre: string;
+  descripcion?: string | null;
+  precioPorPersona?: number | null;
+  precioPorEvento?: number | null;
+  minimoPersonas?: number | null;
+  incluyeBebidas: boolean;
+  incluyeMeseros: boolean;
+  notas?: string | null;
+  activo: boolean;
+  platillos?: PlatilloMenuBanquete[];
 };
 
 export type ProveedorExpediente = Proveedor & {

@@ -11,13 +11,25 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { EstadoCotizacion } from '@prisma/client';
+import { EstadoCotizacion, ModalidadPrecioMenu } from '@prisma/client';
 import { CreateClienteProveedorDto } from './portal.dto';
 
 export class CotizacionProveedorItemDto {
   @IsOptional()
   @IsString()
   productoProveedorId?: string;
+
+  @IsOptional()
+  @IsString()
+  menuBanqueteProveedorId?: string;
+
+  @IsOptional()
+  @IsString()
+  servicioProveedorId?: string;
+
+  @IsOptional()
+  @IsEnum(ModalidadPrecioMenu)
+  modalidadPrecioMenu?: ModalidadPrecioMenu;
 
   @IsString()
   @MinLength(1)

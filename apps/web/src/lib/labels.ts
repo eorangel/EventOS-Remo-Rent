@@ -372,3 +372,34 @@ export const TIPO_DOCUMENTO_COLORS: Record<TipoDocumento, string> = {
   ACTA_ENTREGA: 'bg-purple-100 text-purple-800',
   OTRO: 'bg-slate-100 text-slate-700',
 };
+
+export const SECCION_PLATILLO_LABELS: Record<
+  import('./types').SeccionPlatilloMenu,
+  string
+> = {
+  ENTRADA: 'Entrada',
+  SOPA: 'Sopa',
+  PLATO_FUERTE: 'Plato fuerte',
+  GUARNICION: 'Guarnición',
+  POSTRE: 'Postre',
+  BEBIDA: 'Bebida',
+  OTRO: 'Otro',
+};
+
+export const SECCIONES_PLATILLO_ORDEN: import('./types').SeccionPlatilloMenu[] = [
+  'ENTRADA',
+  'SOPA',
+  'PLATO_FUERTE',
+  'GUARNICION',
+  'POSTRE',
+  'BEBIDA',
+  'OTRO',
+];
+
+export const MODALIDAD_PRECIO_MENU_LABELS: Record<
+  import('./types').ModalidadPrecioMenu,
+  string
+> = {
+  POR_PERSONA: 'Por persona',
+  POR_EVENTO: 'Por evento',
+};

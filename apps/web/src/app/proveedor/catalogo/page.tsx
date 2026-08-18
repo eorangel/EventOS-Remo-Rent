@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button, Card, PageHeader } from '@/components/ui';
+import { CatalogoServiciosPanel } from '@/components/CatalogoServiciosPanel';
 import { ProductoFotoThumb } from '@/components/ProductoFotoThumb';
 import { apiDownload, apiFetch, apiUploadForm } from '@/lib/api';
 import { fotoUrlError } from '@/lib/foto-url';
@@ -19,6 +20,7 @@ import type {
 import { rangoFechaConsulta } from '@/lib/cotizacion-proveedor';
 
 export default function ProveedorCatalogoPage() {
+  const [tab, setTab] = useState<'productos' | 'servicios'>('productos');
   const [productos, setProductos] = useState<ProductoProveedorInventario[]>([]);
   const [fechaConsulta, setFechaConsulta] = useState('');
   const [loading, setLoading] = useState(true);
@@ -202,9 +204,37 @@ export default function ProveedorCatalogoPage() {
     <>
       <PageHeader
         title="Mi catálogo"
-        description="Inventario total y disponibilidad por fecha — evita sobreventas"
+        description="Productos de renta, servicios y menús de banquete para tus cotizaciones"
       />
 
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setTab('productos')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            tab === 'productos'
+              ? 'bg-brand-600 text-white'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          Productos
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('servicios')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            tab === 'servicios'
+              ? 'bg-brand-600 text-white'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          Servicios y banquetes
+        </button>
+      </div>
+
+      {tab === 'servicios' ? (
+        <CatalogoServiciosPanel />
+      ) : (
       <div className="space-y-6">
         <Card>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -494,6 +524,7 @@ export default function ProveedorCatalogoPage() {
           </Card>
         </div>
       </div>
+      )}
     </>
   );
 }
