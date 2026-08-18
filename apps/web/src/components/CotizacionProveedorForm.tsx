@@ -51,6 +51,23 @@ function newLine(): LineItem {
   };
 }
 
+function subtotalLinea(line: LineItem) {
+  return (Number(line.cantidad) || 0) * (Number(line.precioUnitario) || 0);
+}
+
+function tipoLinea(line: LineItem): { label: string; className: string } {
+  if (line.menuBanqueteProveedorId) {
+    return { label: 'Menú', className: 'bg-amber-100 text-amber-800' };
+  }
+  if (line.servicioProveedorId) {
+    return { label: 'Servicio', className: 'bg-violet-100 text-violet-800' };
+  }
+  if (line.productoProveedorId) {
+    return { label: 'Producto', className: 'bg-teal-100 text-teal-800' };
+  }
+  return { label: 'Manual', className: 'bg-slate-100 text-slate-600' };
+}
+
 export function CotizacionProveedorForm({
   mode,
   cotizacionId,
@@ -380,9 +397,13 @@ export function CotizacionProveedorForm({
     }
   }
 
+  const menuSeleccionado = menus.find((m) => m.id === menuPick);
+  const modalidadesDisponibles = menuSeleccionado ? modalidadesMenu(menuSeleccionado) : [];
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-      <div className="space-y-6">
+    <div className="pb-24 lg:pb-0">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
+        <div className="min-w-0 space-y-6">
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Cliente y evento</h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -543,173 +564,346 @@ export function CotizacionProveedorForm({
         </Card>
 
         <Card>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-semibold">Conceptos</h2>
-            <div className="flex flex-col gap-2 sm:items-end">
-              <div className="flex flex-wrap gap-2">
-                <select
-                  value={productoPick}
-                  onChange={(e) => setProductoPick(e.target.value)}
-                  className="min-w-[160px] text-sm"
-                >
-                  <option value="">Producto...</option>
-                  {productos.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre} — {formatMoney(p.precioReferencia)}
-                      {fechaEvento
-                        ? ` · disp. ${p.cantidadDisponible}/${p.cantidadTotal ?? p.cantidadDisponible}`
-                        : ''}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={agregarProducto}
-                  disabled={!productoPick}
-                >
-                  + Producto
-                </Button>
+            <span className="text-sm text-slate-500">
+              {lines.filter((l) => l.descripcion.trim()).length} línea(s)
+            </span>
+          </div>
+          <p className="mb-4 text-sm text-slate-500">
+            Agrega productos, servicios o menús del catálogo, o captura líneas manuales.
+          </p>
+
+          <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Agregar del catálogo
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-slate-600">Producto</label>
+                <div className="flex gap-2">
+                  <select
+                    value={productoPick}
+                    onChange={(e) => setProductoPick(e.target.value)}
+                    className="min-w-0 flex-1 text-sm"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {productos.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre} — {formatMoney(p.precioReferencia)}
+                        {fechaEvento
+                          ? ` · disp. ${p.cantidadDisponible}/${p.cantidadTotal ?? p.cantidadDisponible}`
+                          : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="shrink-0 px-3"
+                    onClick={agregarProducto}
+                    disabled={!productoPick}
+                    aria-label="Agregar producto"
+                  >
+                    +
+                  </Button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <select
-                  value={servicioPick}
-                  onChange={(e) => setServicioPick(e.target.value)}
-                  className="min-w-[160px] text-sm"
-                >
-                  <option value="">Servicio...</option>
-                  {servicios.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre}
-                      {s.precioReferencia != null ? ` — ${formatMoney(s.precioReferencia)}` : ''}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={agregarServicio}
-                  disabled={!servicioPick}
-                >
-                  + Servicio
-                </Button>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-slate-600">Servicio</label>
+                <div className="flex gap-2">
+                  <select
+                    value={servicioPick}
+                    onChange={(e) => setServicioPick(e.target.value)}
+                    className="min-w-0 flex-1 text-sm"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {servicios.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nombre}
+                        {s.precioReferencia != null ? ` — ${formatMoney(s.precioReferencia)}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="shrink-0 px-3"
+                    onClick={agregarServicio}
+                    disabled={!servicioPick}
+                    aria-label="Agregar servicio"
+                  >
+                    +
+                  </Button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <select
-                  value={menuPick}
-                  onChange={(e) => {
-                    setMenuPick(e.target.value);
-                    const m = menus.find((x) => x.id === e.target.value);
-                    if (m) {
-                      const opts = modalidadesMenu(m);
-                      if (opts.length) setMenuModalidad(opts[0]);
-                    }
-                  }}
-                  className="min-w-[160px] text-sm"
-                >
-                  <option value="">Menú banquete...</option>
-                  {menus.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre}
-                      {m.precioPorPersona != null ? ` · ${formatMoney(m.precioPorPersona)}/pers.` : ''}
-                      {m.precioPorEvento != null ? ` · ${formatMoney(m.precioPorEvento)}/evt.` : ''}
-                    </option>
-                  ))}
-                </select>
-                {menuPick && (() => {
-                  const m = menus.find((x) => x.id === menuPick);
-                  const opts = m ? modalidadesMenu(m) : [];
-                  if (opts.length < 2) return null;
-                  return (
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="block text-xs font-medium text-slate-600">Menú de banquete</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <select
+                    value={menuPick}
+                    onChange={(e) => {
+                      setMenuPick(e.target.value);
+                      const m = menus.find((x) => x.id === e.target.value);
+                      if (m) {
+                        const opts = modalidadesMenu(m);
+                        if (opts.length) setMenuModalidad(opts[0]);
+                      }
+                    }}
+                    className="min-w-0 flex-1 text-sm"
+                  >
+                    <option value="">Seleccionar menú...</option>
+                    {menus.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nombre}
+                        {m.precioPorPersona != null
+                          ? ` · ${formatMoney(m.precioPorPersona)}/pers.`
+                          : ''}
+                        {m.precioPorEvento != null
+                          ? ` · ${formatMoney(m.precioPorEvento)}/evt.`
+                          : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {modalidadesDisponibles.length > 1 && (
                     <select
                       value={menuModalidad}
                       onChange={(e) =>
                         setMenuModalidad(e.target.value as ModalidadPrecioMenu)
                       }
-                      className="text-sm"
+                      className="w-full text-sm sm:w-40"
                     >
-                      {opts.map((o) => (
+                      {modalidadesDisponibles.map((o) => (
                         <option key={o} value={o}>
                           {MODALIDAD_PRECIO_MENU_LABELS[o]}
                         </option>
                       ))}
                     </select>
-                  );
-                })()}
-                <Button type="button" variant="secondary" onClick={agregarMenu} disabled={!menuPick}>
-                  + Menú
-                </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="shrink-0 sm:w-auto"
+                    onClick={agregarMenu}
+                    disabled={!menuPick}
+                  >
+                    Agregar menú
+                  </Button>
+                </div>
               </div>
-              <Button type="button" variant="secondary" onClick={() => setLines((p) => [...p, newLine()])}>
-                Línea manual
+            </div>
+
+            <div className="mt-4 border-t border-slate-200/80 pt-4">
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={() => setLines((p) => [...p, newLine()])}
+              >
+                + Línea manual
               </Button>
             </div>
           </div>
 
+          {lines.length > 0 && (
+            <div className="mb-2 hidden gap-2 px-1 text-xs font-medium text-slate-500 md:grid md:grid-cols-[minmax(0,1fr)_72px_96px_96px_36px]">
+              <span>Descripción</span>
+              <span className="text-center">Cant.</span>
+              <span className="text-right">P. unit.</span>
+              <span className="text-right">Subtotal</span>
+              <span />
+            </div>
+          )}
+
           <div className="space-y-3">
-            {lines.map((line) => {
+            {lines.map((line, index) => {
               const inv = inventarioLinea(line);
+              const tipo = tipoLinea(line);
+              const subtotal = subtotalLinea(line);
+
               return (
-              <div
-                key={line.key}
-                className={`grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_80px_120px_40px] ${
-                  inv?.excede ? 'border-red-300 bg-red-50' : 'border-slate-200'
-                }`}
-              >
-                <input
-                  value={line.descripcion}
-                  onChange={(e) => actualizarLinea(line.key, { descripcion: e.target.value })}
-                  placeholder="Descripción"
-                  className="text-sm"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  value={line.cantidad}
-                  onChange={(e) =>
-                    actualizarLinea(line.key, { cantidad: Number(e.target.value) || 1 })
-                  }
-                  className="text-sm"
-                  title="Cantidad"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={line.precioUnitario}
-                  onChange={(e) =>
-                    actualizarLinea(line.key, { precioUnitario: Number(e.target.value) || 0 })
-                  }
-                  className="text-sm"
-                  title="Precio unitario"
-                />
-                <button
-                  type="button"
-                  onClick={() => eliminarLinea(line.key)}
-                  className="text-slate-400 hover:text-red-600"
-                  title="Quitar"
+                <div
+                  key={line.key}
+                  className={`rounded-xl border ${
+                    inv?.excede ? 'border-red-300 bg-red-50/60' : 'border-slate-200 bg-white'
+                  }`}
                 >
-                  ×
-                </button>
-                {inv?.excede && (
-                  <p className="col-span-full text-xs text-red-700">
-                    Excede disponibilidad: {inv.usadoEnLineas} solicitadas,{' '}
-                    {inv.prod.cantidadDisponible} disponibles
-                  </p>
-                )}
-                {line.menuBanqueteProveedorId && line.modalidadPrecioMenu && (
-                  <p className="col-span-full text-xs text-teal-700">
-                    Menú · {MODALIDAD_PRECIO_MENU_LABELS[line.modalidadPrecioMenu]}
-                    {line.modalidadPrecioMenu === 'POR_EVENTO' ? ' (cantidad fija: 1)' : ''}
-                  </p>
-                )}
-                {line.servicioProveedorId && (
-                  <p className="col-span-full text-xs text-teal-700">Servicio del catálogo</p>
-                )}
-              </div>
-            );
+                  {/* Vista móvil / tablet pequeña */}
+                  <div className="space-y-3 p-3 md:hidden">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-slate-400">#{index + 1}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${tipo.className}`}
+                        >
+                          {tipo.label}
+                        </span>
+                        {line.menuBanqueteProveedorId && line.modalidadPrecioMenu && (
+                          <span className="text-xs text-slate-500">
+                            {MODALIDAD_PRECIO_MENU_LABELS[line.modalidadPrecioMenu]}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => eliminarLinea(line.key)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label="Eliminar línea"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-slate-600">
+                        Descripción
+                      </span>
+                      <input
+                        value={line.descripcion}
+                        onChange={(e) =>
+                          actualizarLinea(line.key, { descripcion: e.target.value })
+                        }
+                        placeholder="Concepto"
+                        className="w-full text-sm"
+                      />
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          {line.modalidadPrecioMenu === 'POR_PERSONA' ? 'Personas' : 'Cantidad'}
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={line.cantidad}
+                          onChange={(e) =>
+                            actualizarLinea(line.key, {
+                              cantidad: Number(e.target.value) || 1,
+                            })
+                          }
+                          className="w-full text-sm"
+                          disabled={
+                            line.modalidadPrecioMenu === 'POR_EVENTO' &&
+                            Boolean(line.menuBanqueteProveedorId)
+                          }
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-medium text-slate-600">
+                          Precio unit.
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={line.precioUnitario}
+                          onChange={(e) =>
+                            actualizarLinea(line.key, {
+                              precioUnitario: Number(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full text-sm"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                      <span className="text-xs font-medium text-slate-500">Subtotal</span>
+                      <span className="font-semibold text-slate-900">{formatMoney(subtotal)}</span>
+                    </div>
+
+                    {inv?.excede && (
+                      <p className="text-xs text-red-700">
+                        Excede disponibilidad: {inv.usadoEnLineas} solicitadas,{' '}
+                        {inv.prod.cantidadDisponible} disponibles
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Vista desktop */}
+                  <div className="hidden gap-2 p-3 md:grid md:grid-cols-[minmax(0,1fr)_72px_96px_96px_36px] md:items-start">
+                    <div className="min-w-0 space-y-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${tipo.className}`}
+                        >
+                          {tipo.label}
+                        </span>
+                        {line.menuBanqueteProveedorId && line.modalidadPrecioMenu && (
+                          <span className="text-xs text-slate-500">
+                            {MODALIDAD_PRECIO_MENU_LABELS[line.modalidadPrecioMenu]}
+                            {line.modalidadPrecioMenu === 'POR_EVENTO' ? ' · cant. 1' : ''}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        value={line.descripcion}
+                        onChange={(e) =>
+                          actualizarLinea(line.key, { descripcion: e.target.value })
+                        }
+                        placeholder="Descripción"
+                        className="w-full text-sm"
+                      />
+                      {inv?.excede && (
+                        <p className="text-xs text-red-700">
+                          Excede disponibilidad ({inv.usadoEnLineas}/{inv.prod.cantidadDisponible})
+                        </p>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      min={1}
+                      value={line.cantidad}
+                      onChange={(e) =>
+                        actualizarLinea(line.key, { cantidad: Number(e.target.value) || 1 })
+                      }
+                      className="text-center text-sm"
+                      title={
+                        line.modalidadPrecioMenu === 'POR_PERSONA' ? 'Personas' : 'Cantidad'
+                      }
+                      disabled={
+                        line.modalidadPrecioMenu === 'POR_EVENTO' &&
+                        Boolean(line.menuBanqueteProveedorId)
+                      }
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={line.precioUnitario}
+                      onChange={(e) =>
+                        actualizarLinea(line.key, {
+                          precioUnitario: Number(e.target.value) || 0,
+                        })
+                      }
+                      className="text-right text-sm"
+                      title="Precio unitario"
+                    />
+                    <p className="pt-2 text-right text-sm font-semibold text-slate-900">
+                      {formatMoney(subtotal)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => eliminarLinea(line.key)}
+                      className="mx-auto rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      title="Quitar"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              );
             })}
           </div>
+
+          {lines.length === 0 && (
+            <p className="rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500">
+              Agrega al menos un concepto del catálogo o una línea manual.
+            </p>
+          )}
         </Card>
 
         <Card>
@@ -724,7 +918,7 @@ export function CotizacionProveedorForm({
         </Card>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
         {mode === 'edit' && initialData && (
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -767,7 +961,7 @@ export function CotizacionProveedorForm({
 
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Totales</h2>
-          <div className="space-y-3 text-sm">
+          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">
             <label className="block">
               <span className="mb-1 block text-slate-600">Costo de envío</span>
               <input
@@ -802,7 +996,7 @@ export function CotizacionProveedorForm({
                 className="w-full"
               />
             </label>
-            <label className="flex items-center gap-2">
+            <label className="flex items-center gap-2 sm:col-span-2 lg:col-span-1">
               <input
                 type="checkbox"
                 checked={ivaIncluido}
@@ -812,33 +1006,33 @@ export function CotizacionProveedorForm({
             </label>
           </div>
 
-          <dl className="mt-4 space-y-2 border-t border-slate-200 pt-4 text-sm">
-            <div className="flex justify-between">
+          <dl className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
+            <div className="flex justify-between gap-4">
               <dt className="text-slate-500">Subtotal conceptos</dt>
-              <dd>{formatMoney(totales.subtotal)}</dd>
+              <dd className="font-medium">{formatMoney(totales.subtotal)}</dd>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-4">
               <dt className="text-slate-500">Envío</dt>
               <dd>{formatMoney(Number(costoEnvio) || 0)}</dd>
             </div>
             {totales.descuentoMonto > 0 && (
-              <div className="flex justify-between text-emerald-700">
+              <div className="flex justify-between gap-4 text-emerald-700">
                 <dt>Descuento</dt>
                 <dd>-{formatMoney(totales.descuentoMonto)}</dd>
               </div>
             )}
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-4">
               <dt className="text-slate-500">IVA</dt>
               <dd>{formatMoney(totales.montoIva)}</dd>
             </div>
-            <div className="flex justify-between text-base font-bold text-slate-900">
+            <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
               <dt>Total</dt>
               <dd>{formatMoney(totales.total)}</dd>
             </div>
           </dl>
         </Card>
 
-        <div className="flex flex-col gap-2">
+        <div className="hidden flex-col gap-2 lg:flex">
           <Button onClick={() => guardar(false)} disabled={saving}>
             {saving ? 'Guardando...' : mode === 'create' ? 'Crear cotización' : 'Guardar cambios'}
           </Button>
@@ -853,6 +1047,46 @@ export function CotizacionProveedorForm({
             </>
           )}
         </div>
+      </div>
+      </div>
+
+      {/* Barra fija en móvil / tablet */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-sm lg:hidden">
+        <div className="mx-auto flex max-w-lg items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-slate-500">Total cotización</p>
+            <p className="truncate text-lg font-bold text-slate-900">
+              {formatMoney(totales.total)}
+            </p>
+          </div>
+          <Button
+            onClick={() => guardar(false)}
+            disabled={saving}
+            className="shrink-0"
+          >
+            {saving ? 'Guardando...' : mode === 'create' ? 'Crear' : 'Guardar'}
+          </Button>
+        </div>
+        {mode === 'edit' && (
+          <div className="mx-auto mt-2 flex max-w-lg gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1 text-sm"
+              onClick={() => guardar(true)}
+              disabled={saving}
+            >
+              Enviar
+            </Button>
+            <Button
+              variant="secondary"
+              className="flex-1 text-sm"
+              onClick={generarPdf}
+              disabled={generandoPdf || saving}
+            >
+              PDF
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

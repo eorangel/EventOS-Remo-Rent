@@ -38,7 +38,7 @@ import {
 import {
   buildCotizacionProveedorHtml,
   calcTotalesCotizacionProveedor,
-  pickFotoProductoUrl,
+  mapCotizacionItemParaPdf,
 } from './cotizacion-proveedor.utils';
 import {
   buildPlantillaClientesExcel,
@@ -2033,6 +2033,10 @@ export class PortalService {
             productoProveedor: {
               include: { fotos: { orderBy: { orden: 'asc' } } },
             },
+            menuBanquete: {
+              include: { platillos: { orderBy: { orden: 'asc' } } },
+            },
+            servicioProveedor: { select: { id: true, nombre: true } },
           },
         },
         proveedor: { include: { perfilEmpresa: true } },
@@ -2072,13 +2076,7 @@ export class PortalService {
           }
         : null,
       cliente: cotizacion.clienteProveedor,
-      items: cotizacion.items.map((i) => ({
-        descripcion: i.descripcion,
-        cantidad: i.cantidad,
-        precioUnitario: toNumber(i.precioUnitario),
-        subtotal: toNumber(i.subtotal),
-        fotoUrl: pickFotoProductoUrl(i.productoProveedor?.fotos),
-      })),
+      items: cotizacion.items.map((i) => mapCotizacionItemParaPdf(i)),
     });
 
     return {
