@@ -96,6 +96,7 @@ export function ContratoProveedorForm({
   );
   const [secciones, setSecciones] = useState<SeccionContrato[]>(initialData?.secciones ?? []);
   const [archivoNombre, setArchivoNombre] = useState(initialData?.archivoNombre ?? '');
+  const [savedPlantillaId, setSavedPlantillaId] = useState<string | undefined>(plantillaId);
   const [pdfVars, setPdfVars] = useState<PdfVars>(pdfVarsIniciales);
   const [emailDestinatario, setEmailDestinatario] = useState('');
   const [emailAsunto, setEmailAsunto] = useState('');
@@ -152,6 +153,49 @@ export function ContratoProveedorForm({
     }
   }, [initialData]);
 
+  useEffect(() => {
+    if (mode === 'create' && modo === 'EDITOR' && secciones.length === 0) {
+      setSecciones(seccionesSugeridas(tipoServicio));
+    }
+  }, [mode, modo, tipoServicio, secciones.length]);
+
+  function buildPayload(estadoFinal: EstadoPlantillaContrato) {
+    return {
+      nombre: nombre.trim(),
+      descripcion: descripcion.trim() || undefined,
+      tipoServicio,
+      servicioProveedorId: servicioProveedorId || undefined,
+      menuBanqueteProveedorId: menuBanqueteProveedorId || undefined,
+      modo,
+      estado: estadoFinal,
+      secciones: modo === 'EDITOR' ? secciones : undefined,
+    };
+  }
+
+  async function ensurePlantillaGuardada(
+    estadoFinal: EstadoPlantillaContrato = estado,
+  ): Promise<string> {
+    const existingId = savedPlantillaId ?? plantillaId;
+    if (existingId) return existingId;
+
+    if (!nombre.trim()) {
+      throw new Error('Indica un nombre para la plantilla en la sección superior');
+    }
+    if (modo === 'EDITOR' && secciones.length === 0) {
+      throw new Error('Agrega al menos una cláusula o usa "Cargar cláusulas sugeridas"');
+    }
+
+    const created = await apiFetch<PlantillaContratoProveedor>('/portal/contratos', {
+      method: 'POST',
+      body: JSON.stringify(buildPayload(estadoFinal)),
+    });
+
+    setSavedPlantillaId(created.id);
+    if (created.secciones?.length) setSecciones(created.secciones);
+    router.replace(`/proveedor/contratos/${created.id}`);
+    return created.id;
+  }
+
   function insertarVariable(seccionId: string, variable: string) {
     setSecciones((prev) =>
       prev.map((sec) =>
@@ -177,34 +221,34 @@ export function ContratoProveedorForm({
       alert('Indica un nombre para la plantilla');
       return;
     }
-    if (modo === 'EDITOR' && secciones.length === 0 && mode === 'edit') {
-      alert('Agrega al menos una cláusula al contrato');
+    if (modo === 'EDITOR' && secciones.length === 0) {
+      alert('Agrega al menos una cláusula al contrato o usa "Cargar cláusulas sugeridas"');
       return;
     }
 
     setSaving(true);
     try {
-      const payload = {
-        nombre: nombre.trim(),
-        descripcion: descripcion.trim() || undefined,
-        tipoServicio,
-        servicioProveedorId: servicioProveedorId || undefined,
-        menuBanqueteProveedorId: menuBanqueteProveedorId || undefined,
-        modo,
-        estado: nuevoEstado ?? estado,
-        secciones: modo === 'EDITOR' ? secciones : undefined,
-      };
+      const estadoFinal = nuevoEstado ?? estado;
+      const payload = buildPayload(estadoFinal);
 
-      if (mode === 'create') {
+      if (mode === 'create' && !savedPlantillaId) {
         const created = await apiFetch<PlantillaContratoProveedor>('/portal/contratos', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
+        setSavedPlantillaId(created.id);
+        if (nuevoEstado) setEstado(nuevoEstado);
         router.replace(`/proveedor/contratos/${created.id}`);
         return;
       }
 
-      await apiFetch<PlantillaContratoProveedor>(`/portal/contratos/${plantillaId}`, {
+      const id = savedPlantillaId ?? plantillaId;
+      if (!id) {
+        alert('No se pudo identificar la plantilla');
+        return;
+      }
+
+      await apiFetch<PlantillaContratoProveedor>(`/portal/contratos/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
@@ -269,12 +313,6 @@ export function ContratoProveedorForm({
   }
 
   async function enviarEmail() {
-    let id = plantillaId;
-    if (!id) {
-      alert('Guarda la plantilla antes de enviar el contrato');
-      return;
-    }
-
     const destinatario = emailDestinatario.trim() || pdfVars.clienteEmail.trim();
     if (!destinatario) {
       alert('Indica el correo del cliente');
@@ -283,6 +321,7 @@ export function ContratoProveedorForm({
 
     setEnviandoEmail(true);
     try {
+      const id = await ensurePlantillaGuardada();
       const res = await apiFetch<EnviarContratoEmailResponse>(`/portal/contratos/${id}/enviar-email`, {
         method: 'POST',
         body: JSON.stringify({
@@ -323,14 +362,9 @@ export function ContratoProveedorForm({
   }
 
   async function generarPdf() {
-    let id = plantillaId;
-    if (!id) {
-      alert('Guarda la plantilla antes de generar el PDF');
-      return;
-    }
-
     setGenerandoPdf(true);
     try {
+      const id = await ensurePlantillaGuardada();
       const res = await apiFetch<ContratoPdfResponse>(`/portal/contratos/${id}/pdf`, {
         method: 'POST',
         body: JSON.stringify({
@@ -408,12 +442,15 @@ export function ContratoProveedorForm({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block text-sm md:col-span-2">
-            <span className="mb-1 block font-medium text-slate-700">Nombre de la plantilla</span>
+            <span className="mb-1 block font-medium text-slate-700">
+              Nombre de la plantilla <span className="text-red-600">*</span>
+            </span>
             <input
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               placeholder="Ej. Contrato de renta de mobiliario"
+              required
             />
           </label>
 
@@ -716,11 +753,13 @@ export function ContratoProveedorForm({
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          <Button type="button" onClick={() => void generarPdf()} disabled={generandoPdf || !plantillaId}>
+          <Button type="button" onClick={() => void generarPdf()} disabled={generandoPdf || saving}>
             {generandoPdf ? 'Generando...' : 'Ver PDF para firmar'}
           </Button>
           <p className="self-center text-xs text-slate-500">
-            Se abrirá una ventana lista para imprimir o guardar como PDF.
+            {mode === 'create' && !savedPlantillaId
+              ? 'Se guardará la plantilla automáticamente antes de abrir el PDF.'
+              : 'Se abrirá una ventana lista para imprimir o guardar como PDF.'}
           </p>
         </div>
       </Card>
@@ -768,7 +807,7 @@ export function ContratoProveedorForm({
           <Button
             type="button"
             onClick={() => void enviarEmail()}
-            disabled={enviandoEmail || !plantillaId}
+            disabled={enviandoEmail || saving}
           >
             {enviandoEmail ? 'Enviando...' : 'Enviar contrato por email'}
           </Button>
