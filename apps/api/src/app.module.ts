@@ -19,6 +19,7 @@ import { PasarelaModule } from './pasarela/pasarela.module';
 import { PagosModule } from './pagos/pagos.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { SuscripcionesModule } from './suscripciones/suscripciones.module';
+import { MailModule } from './mail/mail.module';
 import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
