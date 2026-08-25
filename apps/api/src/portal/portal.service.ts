@@ -2654,6 +2654,19 @@ export class PortalService {
       throw new BadRequestException('Indica el correo del cliente para enviar el contrato');
     }
 
+    const plantilla = await this.prisma.plantillaContratoProveedor.findFirst({
+      where: { id: plantillaId, proveedorId },
+      select: {
+        id: true,
+        nombre: true,
+        modo: true,
+        archivoNombre: true,
+        archivoMime: true,
+        archivoContenido: true,
+      },
+    });
+    if (!plantilla) throw new NotFoundException('Plantilla de contrato no encontrada');
+
     const { titulo, html } = await this.buildPlantillaContratoDocumento(proveedorId, plantillaId, vars);
     const proveedor = await this.prisma.proveedor.findUnique({
       where: { id: proveedorId },
@@ -2665,11 +2678,29 @@ export class PortalService {
       vars.asunto?.trim() ||
       `Contrato — ${proveedor.nombre}${vars.clienteNombre ? ` — ${vars.clienteNombre}` : ''}`;
 
+    const attachments =
+      plantilla.modo === ModoPlantillaContrato.ARCHIVO &&
+      plantilla.archivoContenido &&
+      plantilla.archivoMime === 'application/pdf'
+        ? [
+            {
+              filename: plantilla.archivoNombre ?? `${plantilla.nombre}.pdf`,
+              content: Buffer.from(plantilla.archivoContenido, 'base64'),
+              contentType: 'application/pdf',
+            },
+          ]
+        : undefined;
+
+    const contractHtml =
+      attachments != null
+        ? `<p>Adjuntamos el contrato <strong>${plantilla.nombre}</strong> en PDF para tu revisión y firma.</p>`
+        : html;
+
     const emailHtml = wrapContratoEmailHtml({
       mensaje: vars.mensaje,
       proveedorNombre: proveedor.nombre,
       clienteNombre: vars.clienteNombre,
-      contractHtml: html,
+      contractHtml,
     });
 
     const result = await this.mailService.sendMail({
@@ -2677,6 +2708,7 @@ export class PortalService {
       subject: asunto,
       html: emailHtml,
       replyTo: proveedor.email ?? undefined,
+      attachments,
     });
 
     if (emitidoId) {
