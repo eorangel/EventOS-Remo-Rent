@@ -1,7 +1,7 @@
 # REMO / EventOS — Notas de sesión
 
 Punto de pausa / retoma de trabajo.  
-**Actualizado:** 24 ago 2026
+**Actualizado:** 25 ago 2026 — pausa para trabajar en otro repositorio
 
 ## Repositorio
 
@@ -9,7 +9,7 @@ Punto de pausa / retoma de trabajo.
 |---|---|
 | **GitHub** | https://github.com/eorangel/EventOS-Remo-Rent |
 | **Local (única carpeta de trabajo)** | `C:\Users\ERICK ORTIZ\Projects\eventos` |
-| **Rama** | `main` @ `38d27c9` (sincronizada con `origin/main`) |
+| **Rama** | `main` @ `4ed11e5` (sincronizada con `origin/main`) |
 | **Git (GitHub Desktop)** | `C:\Users\ERICK ORTIZ\AppData\Local\GitHubDesktop\app-3.6.3\resources\app\git\cmd\git.exe` |
 
 > **Importante:** No usar `Documents\GitHub\EventOS-Remo-Rent` — es un clon duplicado sin `.env` ni Docker configurados. Trabajar siempre en `Projects\eventos`.
@@ -18,9 +18,11 @@ Punto de pausa / retoma de trabajo.
 
 | Commit | Descripción |
 |--------|-------------|
-| `38d27c9` | Módulo contratos proveedor: plantillas, PDF, cotizaciones aprobadas, envío email |
-| `f53ecab` | Notas de sesión y gitignore para cambio de repositorio |
-| `26cdac9` | UI cotizaciones responsiva + PDF profesional |
+| `4ed11e5` | Envío de correos vía **Resend** (Railway bloquea SMTP saliente) |
+| `4bb2e10` | Errores SMTP claros + adjuntos PDF en contratos |
+| `b70b964` | Import MailModule — fix deploy API en Railway |
+| `c46d6ae` | Guardar/PDF en plantilla de contrato nueva |
+| `38d27c9` | Módulo contratos proveedor completo |
 
 ## Producción
 
@@ -52,7 +54,7 @@ Railway auto-deploy al push en `main`. Verificar en **Deployments** que el commi
   - `20260824200000_plantillas_contrato_proveedor`
   - `20260824210000_contratos_emitidos_email`
 - Modelos nuevos: `PlantillaContratoProveedor`, `ContratoEmitidoProveedor`
-- MailModule (SMTP) para envío de contratos por email
+- MailModule + **Resend API** (HTTPS) para envío en Railway; SMTP solo local
 - Producción: `prisma migrate deploy` corre al iniciar la API (`start:prod`)
 
 ### Contratos proveedor (`/proveedor/contratos`)
@@ -60,6 +62,24 @@ Railway auto-deploy al push en `main`. Verificar en **Deployments** que el commi
 - PDF listo para firmar
 - Generación desde cotización **Aprobada**
 - Envío por email al cliente
+
+## Correo en producción — pendiente al retomar
+
+Railway **bloquea SMTP saliente** (Gmail `smtp.gmail.com:587` → *Connection timeout*).  
+Las variables SMTP en el servicio **api** están bien; el bloqueo es de la plataforma.
+
+**Solución implementada:** Resend por API (`RESEND_API_KEY` + `RESEND_FROM`).
+
+| Variable Railway (servicio **api**) | Valor sugerido |
+|-------------------------------------|----------------|
+| `RESEND_API_KEY` | API key de https://resend.com (`re_...`) |
+| `RESEND_FROM` | `"Remo&Rent" <onboarding@resend.dev>` (pruebas) o dominio verificado |
+
+- Cuenta Gmail `remo.conecta@gmail.com`: sirve como **reply-to** y para recibir; no como SMTP en Railway.
+- Con `onboarding@resend.dev` solo se puede enviar al correo con el que te registraste en Resend.
+- Para clientes reales (ej. Hotmail): verificar dominio en Resend.
+
+Variables SMTP actuales en Railway pueden quedarse; si existe `RESEND_API_KEY`, se usa Resend.
 
 ## Retomar este proyecto
 
@@ -76,6 +96,7 @@ npm run db:migrate
 
 ## Ideas pendientes (no bloqueantes)
 
+- Configurar **Resend** en Railway y probar envío de contrato por email
 - Al marcar cobro **Pagado** → cotización **Aprobada**
 - Dominios propios (`remorent.mx`, `app.remorent.mx`, `api.remorent.mx`)
 - Miniaturas en selector de productos al cotizar
