@@ -342,7 +342,7 @@ export function ContratoProveedorForm({
 
       if (res.simulated) {
         alert(
-          'SMTP no está configurado en el servidor. El contrato se registró como envío simulado (revisa logs del API). Configura SMTP_HOST, SMTP_USER y SMTP_PASS para envío real.',
+          'Correo no configurado en el servidor. Configura RESEND_API_KEY en Railway (recomendado) o SMTP para envío local.',
         );
       } else {
         alert(`Contrato enviado a ${res.destinatario}`);
