@@ -9,6 +9,9 @@ import {
   EstadoEventoProveedor,
   Prisma,
   EstadoCotizacion,
+  EstadoPlantillaContrato,
+  ModoPlantillaContrato,
+  TipoServicioContrato,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { calcSubtotal, roundMoney, toNumber } from '../common/utils/pricing';
@@ -35,6 +38,26 @@ import {
   CreateCotizacionProveedorDto,
   UpdateCotizacionProveedorDto,
 } from './dto/cotizacion-proveedor.dto';
+import {
+  CreatePlantillaContratoDto,
+  CrearContratoDesdeCotizacionDto,
+  EnviarContratoEmailDto,
+  GenerarPdfContratoDto,
+  SubirArchivoContratoDto,
+  UpdatePlantillaContratoDto,
+} from './dto/contrato-proveedor.dto';
+import {
+  buildContratoArchivoHtml,
+  buildContratoProveedorHtml,
+  seccionesPorDefecto,
+  wrapContratoEmailHtml,
+  type SeccionContrato,
+} from './contrato-proveedor.utils';
+import {
+  buildPrefillContratoDesdeCotizacion,
+  sugerirPlantillaId,
+} from './cotizacion-contrato.utils';
+import { MailService } from '../mail/mail.service';
 import {
   buildCotizacionProveedorHtml,
   calcTotalesCotizacionProveedor,
@@ -96,6 +119,7 @@ export class PortalService {
     private prisma: PrismaService,
     private catalogoService: CatalogoProveedorService,
     private banqueteService: CatalogoBanqueteService,
+    private mailService: MailService,
   ) {}
 
   async getDashboard(user: AuthUser) {
@@ -2297,5 +2321,583 @@ export class PortalService {
         subtotal: toNumber(i.subtotal as never),
       })),
     };
+  }
+
+  async listPlantillasContrato(
+    user: AuthUser,
+    filters?: { estado?: EstadoPlantillaContrato; tipoServicio?: TipoServicioContrato },
+  ) {
+    const proveedorId = requireProveedorUser(user);
+    const rows = await this.prisma.plantillaContratoProveedor.findMany({
+      where: {
+        proveedorId,
+        ...(filters?.estado ? { estado: filters.estado } : {}),
+        ...(filters?.tipoServicio ? { tipoServicio: filters.tipoServicio } : {}),
+      },
+      include: {
+        servicio: { select: { id: true, nombre: true } },
+        menu: { select: { id: true, nombre: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return rows.map((row) => this.mapPlantillaContrato(row));
+  }
+
+  async getPlantillaContrato(user: AuthUser, id: string) {
+    const proveedorId = requireProveedorUser(user);
+    const row = await this.prisma.plantillaContratoProveedor.findFirst({
+      where: { id, proveedorId },
+      include: {
+        servicio: { select: { id: true, nombre: true } },
+        menu: { select: { id: true, nombre: true } },
+      },
+    });
+    if (!row) throw new NotFoundException('Plantilla de contrato no encontrada');
+    return this.mapPlantillaContrato(row);
+  }
+
+  async createPlantillaContrato(user: AuthUser, dto: CreatePlantillaContratoDto) {
+    const proveedorId = requireProveedorUser(user);
+    await this.validarReferenciasContrato(proveedorId, dto);
+
+    const tipo = dto.tipoServicio ?? TipoServicioContrato.GENERAL;
+    const modo = dto.modo ?? ModoPlantillaContrato.EDITOR;
+    const secciones =
+      dto.secciones?.length && modo === ModoPlantillaContrato.EDITOR
+        ? this.normalizarSecciones(dto.secciones)
+        : modo === ModoPlantillaContrato.EDITOR
+          ? seccionesPorDefecto(tipo)
+          : [];
+
+    const created = await this.prisma.plantillaContratoProveedor.create({
+      data: {
+        proveedorId,
+        nombre: dto.nombre.trim(),
+        descripcion: dto.descripcion?.trim() || undefined,
+        tipoServicio: tipo,
+        servicioProveedorId: dto.servicioProveedorId || undefined,
+        menuBanqueteProveedorId: dto.menuBanqueteProveedorId || undefined,
+        modo,
+        estado: dto.estado ?? EstadoPlantillaContrato.BORRADOR,
+        secciones: secciones.length ? (secciones as unknown as Prisma.InputJsonValue) : undefined,
+      },
+      include: {
+        servicio: { select: { id: true, nombre: true } },
+        menu: { select: { id: true, nombre: true } },
+      },
+    });
+
+    return this.mapPlantillaContrato(created);
+  }
+
+  async updatePlantillaContrato(user: AuthUser, id: string, dto: UpdatePlantillaContratoDto) {
+    const proveedorId = requireProveedorUser(user);
+    await this.ensurePlantillaContrato(proveedorId, id);
+    await this.validarReferenciasContrato(proveedorId, dto);
+
+    const updated = await this.prisma.plantillaContratoProveedor.update({
+      where: { id },
+      data: {
+        ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
+        ...(dto.descripcion !== undefined
+          ? { descripcion: dto.descripcion?.trim() || null }
+          : {}),
+        ...(dto.tipoServicio !== undefined ? { tipoServicio: dto.tipoServicio } : {}),
+        ...(dto.servicioProveedorId !== undefined
+          ? { servicioProveedorId: dto.servicioProveedorId || null }
+          : {}),
+        ...(dto.menuBanqueteProveedorId !== undefined
+          ? { menuBanqueteProveedorId: dto.menuBanqueteProveedorId || null }
+          : {}),
+        ...(dto.modo !== undefined ? { modo: dto.modo } : {}),
+        ...(dto.estado !== undefined ? { estado: dto.estado } : {}),
+        ...(dto.secciones !== undefined
+          ? {
+              secciones: this.normalizarSecciones(dto.secciones) as unknown as Prisma.InputJsonValue,
+            }
+          : {}),
+      },
+      include: {
+        servicio: { select: { id: true, nombre: true } },
+        menu: { select: { id: true, nombre: true } },
+      },
+    });
+
+    return this.mapPlantillaContrato(updated);
+  }
+
+  async deletePlantillaContrato(user: AuthUser, id: string) {
+    const proveedorId = requireProveedorUser(user);
+    await this.ensurePlantillaContrato(proveedorId, id);
+    await this.prisma.plantillaContratoProveedor.delete({ where: { id } });
+    return { ok: true };
+  }
+
+  async subirArchivoPlantillaContrato(
+    user: AuthUser,
+    id: string,
+    dto: SubirArchivoContratoDto,
+  ) {
+    const proveedorId = requireProveedorUser(user);
+    await this.ensurePlantillaContrato(proveedorId, id);
+
+    const mime = dto.archivoMime.toLowerCase();
+    const allowed = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (!allowed.includes(mime)) {
+      throw new BadRequestException('Solo se permiten archivos PDF, DOC o DOCX');
+    }
+
+    const sizeBytes = Buffer.from(dto.archivoContenido, 'base64').byteLength;
+    if (sizeBytes > 2 * 1024 * 1024) {
+      throw new BadRequestException('El archivo no debe superar 2 MB');
+    }
+
+    const updated = await this.prisma.plantillaContratoProveedor.update({
+      where: { id },
+      data: {
+        modo: ModoPlantillaContrato.ARCHIVO,
+        archivoNombre: dto.archivoNombre.trim(),
+        archivoMime: dto.archivoMime,
+        archivoContenido: dto.archivoContenido,
+        secciones: Prisma.DbNull,
+      },
+      include: {
+        servicio: { select: { id: true, nombre: true } },
+        menu: { select: { id: true, nombre: true } },
+      },
+    });
+
+    return this.mapPlantillaContrato(updated);
+  }
+
+  async generarPdfPlantillaContrato(
+    user: AuthUser,
+    id: string,
+    dto: GenerarPdfContratoDto = {},
+  ) {
+    const proveedorId = requireProveedorUser(user);
+    const { titulo, html } = await this.buildPlantillaContratoDocumento(proveedorId, id, dto);
+    return { titulo, html };
+  }
+
+  async getContratoOpcionesDesdeCotizacion(user: AuthUser, cotizacionId: string) {
+    const proveedorId = requireProveedorUser(user);
+    const cotizacion = await this.ensureCotizacionAprobada(proveedorId, cotizacionId);
+
+    const plantillas = await this.prisma.plantillaContratoProveedor.findMany({
+      where: { proveedorId },
+      include: {
+        servicio: { select: { id: true, nombre: true } },
+        menu: { select: { id: true, nombre: true } },
+      },
+      orderBy: [{ estado: 'asc' }, { updatedAt: 'desc' }],
+    });
+
+    const prefill = buildPrefillContratoDesdeCotizacion({
+      cliente: cotizacion.clienteProveedor,
+      fechaEvento: cotizacion.fechaEvento,
+      lugarEntrega: cotizacion.lugarEntrega,
+      total: toNumber(cotizacion.total),
+      moneda: cotizacion.proveedor.perfilEmpresa?.moneda ?? 'MXN',
+      items: cotizacion.items,
+    });
+
+    const emitidoExistente = cotizacion.contratoEmitido
+      ? this.mapContratoEmitido(cotizacion.contratoEmitido)
+      : null;
+
+    return {
+      cotizacionId: cotizacion.id,
+      folioCotizacion: cotizacion.folio,
+      prefill,
+      plantillaSugeridaId: sugerirPlantillaId(plantillas, prefill.tipoServicio, cotizacion.items),
+      plantillas: plantillas.map((p) => this.mapPlantillaContrato(p)),
+      emitidoExistente,
+    };
+  }
+
+  async crearContratoDesdeCotizacion(
+    user: AuthUser,
+    cotizacionId: string,
+    dto: CrearContratoDesdeCotizacionDto,
+  ) {
+    const proveedorId = requireProveedorUser(user);
+    const cotizacion = await this.ensureCotizacionAprobada(proveedorId, cotizacionId);
+
+    const existing = await this.prisma.contratoEmitidoProveedor.findUnique({
+      where: { cotizacionProveedorId: cotizacionId },
+      include: {
+        plantilla: {
+          include: {
+            servicio: { select: { id: true, nombre: true } },
+            menu: { select: { id: true, nombre: true } },
+          },
+        },
+        cotizacion: { select: { id: true, folio: true } },
+      },
+    });
+    if (existing) {
+      return {
+        ...this.mapContratoEmitido(existing),
+        plantilla: this.mapPlantillaContrato(existing.plantilla),
+        reutilizado: true,
+      };
+    }
+
+    await this.ensurePlantillaContrato(proveedorId, dto.plantillaContratoId);
+
+    const prefill = buildPrefillContratoDesdeCotizacion({
+      cliente: cotizacion.clienteProveedor,
+      fechaEvento: cotizacion.fechaEvento,
+      lugarEntrega: cotizacion.lugarEntrega,
+      total: toNumber(cotizacion.total),
+      moneda: cotizacion.proveedor.perfilEmpresa?.moneda ?? 'MXN',
+      items: cotizacion.items,
+    });
+
+    const folio = await this.nextContratoEmitidoFolio(proveedorId);
+    const created = await this.prisma.contratoEmitidoProveedor.create({
+      data: {
+        proveedorId,
+        plantillaContratoId: dto.plantillaContratoId,
+        cotizacionProveedorId: cotizacion.id,
+        folio,
+        clienteNombre: prefill.clienteNombre,
+        clienteEmpresa: prefill.clienteEmpresa,
+        clienteEmail: prefill.clienteEmail,
+        clienteTelefono: prefill.clienteTelefono,
+        fechaEvento: cotizacion.fechaEvento,
+        lugarEvento: prefill.lugarEvento,
+        montoTotal: toNumber(cotizacion.total),
+        servicioNombre: prefill.servicioNombre,
+      },
+      include: {
+        plantilla: {
+          include: {
+            servicio: { select: { id: true, nombre: true } },
+            menu: { select: { id: true, nombre: true } },
+          },
+        },
+        cotizacion: { select: { id: true, folio: true } },
+      },
+    });
+
+    return {
+      ...this.mapContratoEmitido(created),
+      plantilla: this.mapPlantillaContrato(created.plantilla),
+      prefill,
+      reutilizado: false,
+    };
+  }
+
+  async getContratoEmitido(user: AuthUser, id: string) {
+    const proveedorId = requireProveedorUser(user);
+    const row = await this.prisma.contratoEmitidoProveedor.findFirst({
+      where: { id, proveedorId },
+      include: {
+        plantilla: {
+          include: {
+            servicio: { select: { id: true, nombre: true } },
+            menu: { select: { id: true, nombre: true } },
+          },
+        },
+        cotizacion: { select: { id: true, folio: true, titulo: true } },
+      },
+    });
+    if (!row) throw new NotFoundException('Contrato emitido no encontrado');
+    return {
+      ...this.mapContratoEmitido(row),
+      plantilla: this.mapPlantillaContrato(row.plantilla),
+    };
+  }
+
+  async enviarContratoPorEmail(user: AuthUser, plantillaId: string, dto: EnviarContratoEmailDto) {
+    const proveedorId = requireProveedorUser(user);
+    let vars = dto;
+    let emitidoId = dto.emitidoId;
+
+    if (dto.emitidoId) {
+      const emitido = await this.prisma.contratoEmitidoProveedor.findFirst({
+        where: { id: dto.emitidoId, proveedorId, plantillaContratoId: plantillaId },
+      });
+      if (!emitido) throw new NotFoundException('Contrato emitido no encontrado');
+      vars = {
+        ...dto,
+        clienteNombre: dto.clienteNombre ?? emitido.clienteNombre,
+        clienteEmpresa: dto.clienteEmpresa ?? emitido.clienteEmpresa ?? undefined,
+        clienteEmail: dto.clienteEmail ?? emitido.clienteEmail ?? undefined,
+        clienteTelefono: dto.clienteTelefono ?? emitido.clienteTelefono ?? undefined,
+        fechaEvento:
+          dto.fechaEvento ??
+          (emitido.fechaEvento
+            ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'long' }).format(emitido.fechaEvento)
+            : undefined),
+        lugarEvento: dto.lugarEvento ?? emitido.lugarEvento ?? undefined,
+        montoTotal:
+          dto.montoTotal ??
+          (emitido.montoTotal != null
+            ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
+                toNumber(emitido.montoTotal),
+              )
+            : undefined),
+        servicioNombre: dto.servicioNombre ?? emitido.servicioNombre ?? undefined,
+      };
+      emitidoId = emitido.id;
+    }
+
+    const destinatario = vars.destinatario?.trim() || vars.clienteEmail?.trim();
+    if (!destinatario) {
+      throw new BadRequestException('Indica el correo del cliente para enviar el contrato');
+    }
+
+    const { titulo, html } = await this.buildPlantillaContratoDocumento(proveedorId, plantillaId, vars);
+    const proveedor = await this.prisma.proveedor.findUnique({
+      where: { id: proveedorId },
+      select: { nombre: true, email: true },
+    });
+    if (!proveedor) throw new NotFoundException('Proveedor no encontrado');
+
+    const asunto =
+      vars.asunto?.trim() ||
+      `Contrato — ${proveedor.nombre}${vars.clienteNombre ? ` — ${vars.clienteNombre}` : ''}`;
+
+    const emailHtml = wrapContratoEmailHtml({
+      mensaje: vars.mensaje,
+      proveedorNombre: proveedor.nombre,
+      clienteNombre: vars.clienteNombre,
+      contractHtml: html,
+    });
+
+    const result = await this.mailService.sendMail({
+      to: destinatario,
+      subject: asunto,
+      html: emailHtml,
+      replyTo: proveedor.email ?? undefined,
+    });
+
+    if (emitidoId) {
+      await this.prisma.contratoEmitidoProveedor.update({
+        where: { id: emitidoId },
+        data: {
+          enviadoEn: new Date(),
+          enviadoA: destinatario,
+          asuntoEnvio: asunto,
+          mensajeEnvio: vars.mensaje?.trim() || null,
+          clienteEmail: destinatario,
+        },
+      });
+    }
+
+    return {
+      ok: true,
+      titulo,
+      destinatario,
+      asunto,
+      simulated: result.simulated ?? false,
+      mailConfigured: this.mailService.isConfigured(),
+    };
+  }
+
+  private async buildPlantillaContratoDocumento(
+    proveedorId: string,
+    plantillaId: string,
+    dto: GenerarPdfContratoDto,
+  ) {
+    const plantilla = await this.prisma.plantillaContratoProveedor.findFirst({
+      where: { id: plantillaId, proveedorId },
+      include: {
+        servicio: { select: { id: true, nombre: true } },
+        menu: { select: { id: true, nombre: true } },
+        proveedor: { include: { perfilEmpresa: true } },
+      },
+    });
+    if (!plantilla) throw new NotFoundException('Plantilla de contrato no encontrada');
+
+    if (plantilla.modo === ModoPlantillaContrato.ARCHIVO) {
+      if (!plantilla.archivoContenido || !plantilla.archivoMime || !plantilla.archivoNombre) {
+        throw new BadRequestException('Esta plantilla no tiene un archivo cargado');
+      }
+      const html = buildContratoArchivoHtml({
+        nombre: plantilla.nombre,
+        archivoNombre: plantilla.archivoNombre,
+        archivoMime: plantilla.archivoMime,
+        archivoContenido: plantilla.archivoContenido,
+      });
+      return { titulo: plantilla.nombre, html };
+    }
+
+    const secciones = this.parseSecciones(plantilla.secciones);
+    if (!secciones.length) {
+      throw new BadRequestException('Agrega al menos una cláusula al contrato');
+    }
+
+    const servicioNombre =
+      dto.servicioNombre?.trim() ||
+      plantilla.servicio?.nombre ||
+      plantilla.menu?.nombre ||
+      undefined;
+
+    const html = buildContratoProveedorHtml({
+      nombre: plantilla.nombre,
+      tipoServicio: plantilla.tipoServicio,
+      secciones,
+      variables: {
+        cliente_nombre: dto.clienteNombre,
+        cliente_empresa: dto.clienteEmpresa,
+        cliente_email: dto.clienteEmail,
+        cliente_telefono: dto.clienteTelefono,
+        fecha_evento: dto.fechaEvento,
+        lugar_evento: dto.lugarEvento,
+        monto_total: dto.montoTotal,
+        servicio_nombre: servicioNombre,
+        proveedor_nombre: plantilla.proveedor.nombre,
+        proveedor_rfc: plantilla.proveedor.rfc ?? undefined,
+      },
+      proveedor: {
+        nombre: plantilla.proveedor.nombre,
+        razonSocial: plantilla.proveedor.razonSocial,
+        rfc: plantilla.proveedor.rfc,
+        contacto: plantilla.proveedor.contacto,
+        email: plantilla.proveedor.email,
+        telefono: plantilla.proveedor.telefono,
+        direccion: plantilla.proveedor.direccion,
+      },
+      perfil: plantilla.proveedor.perfilEmpresa
+        ? {
+            logoUrl: plantilla.proveedor.perfilEmpresa.logoUrl,
+            politicasRenta: plantilla.proveedor.perfilEmpresa.politicasRenta,
+            condicionesCancelacion: plantilla.proveedor.perfilEmpresa.condicionesCancelacion,
+          }
+        : null,
+    });
+
+    return { titulo: plantilla.nombre, html };
+  }
+
+  private async ensureCotizacionAprobada(proveedorId: string, cotizacionId: string) {
+    const cotizacion = await this.prisma.cotizacionProveedor.findFirst({
+      where: { id: cotizacionId, proveedorId },
+      include: {
+        clienteProveedor: true,
+        items: {
+          include: {
+            productoProveedor: { select: { nombre: true } },
+            servicioProveedor: { select: { nombre: true } },
+            menuBanquete: { select: { nombre: true } },
+          },
+        },
+        proveedor: { include: { perfilEmpresa: true } },
+        contratoEmitido: {
+          include: {
+            plantilla: {
+              include: {
+                servicio: { select: { id: true, nombre: true } },
+                menu: { select: { id: true, nombre: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!cotizacion) throw new NotFoundException('Cotización no encontrada');
+    if (cotizacion.estado !== EstadoCotizacion.APROBADA) {
+      throw new BadRequestException('Solo puedes generar contratos de cotizaciones aprobadas');
+    }
+    return cotizacion;
+  }
+
+  private async nextContratoEmitidoFolio(proveedorId: string) {
+    const count = await this.prisma.contratoEmitidoProveedor.count({ where: { proveedorId } });
+    const seq = String(count + 1).padStart(4, '0');
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    return `CON-${date}-${seq}`;
+  }
+
+  private mapContratoEmitido<
+    T extends {
+      montoTotal?: unknown;
+      fechaEvento?: Date | null;
+    },
+  >(row: T) {
+    return {
+      ...row,
+      montoTotal: row.montoTotal != null ? toNumber(row.montoTotal as never) : null,
+    };
+  }
+
+  private mapPlantillaContrato<
+    T extends {
+      secciones: unknown;
+      archivoContenido?: string | null;
+    },
+  >(row: T) {
+    const { archivoContenido, ...rest } = row;
+    return {
+      ...rest,
+      secciones: this.parseSecciones(row.secciones),
+      tieneArchivo: Boolean(archivoContenido),
+    };
+  }
+
+  private parseSecciones(value: unknown): SeccionContrato[] {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item, idx) => {
+        if (!item || typeof item !== 'object') return null;
+        const sec = item as Record<string, unknown>;
+        if (typeof sec.titulo !== 'string' || typeof sec.contenido !== 'string') return null;
+        return {
+          id: typeof sec.id === 'string' ? sec.id : `sec-${idx}`,
+          titulo: sec.titulo,
+          contenido: sec.contenido,
+          orden: typeof sec.orden === 'number' ? sec.orden : idx,
+        };
+      })
+      .filter(Boolean) as SeccionContrato[];
+  }
+
+  private normalizarSecciones(
+    secciones: Array<{ id: string; titulo: string; contenido: string; orden?: number }>,
+  ): SeccionContrato[] {
+    return secciones.map((sec, idx) => ({
+      id: sec.id,
+      titulo: sec.titulo.trim(),
+      contenido: sec.contenido.trim(),
+      orden: sec.orden ?? idx,
+    }));
+  }
+
+  private async validarReferenciasContrato(
+    proveedorId: string,
+    dto: {
+      servicioProveedorId?: string | null;
+      menuBanqueteProveedorId?: string | null;
+    },
+  ) {
+    if (dto.servicioProveedorId) {
+      const servicio = await this.prisma.servicioProveedor.findFirst({
+        where: { id: dto.servicioProveedorId, proveedorId },
+      });
+      if (!servicio) throw new BadRequestException('Servicio no encontrado en tu catálogo');
+    }
+
+    if (dto.menuBanqueteProveedorId) {
+      const menu = await this.prisma.menuBanqueteProveedor.findFirst({
+        where: { id: dto.menuBanqueteProveedorId, proveedorId },
+      });
+      if (!menu) throw new BadRequestException('Menú de banquete no encontrado en tu catálogo');
+    }
+  }
+
+  private async ensurePlantillaContrato(proveedorId: string, id: string) {
+    const row = await this.prisma.plantillaContratoProveedor.findFirst({
+      where: { id, proveedorId },
+    });
+    if (!row) throw new NotFoundException('Plantilla de contrato no encontrada');
+    return row;
   }
 }

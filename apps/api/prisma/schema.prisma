@@ -96,6 +96,24 @@ enum EstadoCotizacion {
   RECHAZADA
 }
 
+enum TipoServicioContrato {
+  GENERAL
+  RENTA_MOBILIARIO
+  SERVICIO
+  BANQUETE
+}
+
+enum ModoPlantillaContrato {
+  EDITOR
+  ARCHIVO
+}
+
+enum EstadoPlantillaContrato {
+  BORRADOR
+  ACTIVA
+  ARCHIVADA
+}
+
 enum TipoActividad {
   MONTAJE
   EVENTO
@@ -282,6 +300,8 @@ model Proveedor {
   configPasarela  ConfigPasarelaProveedor?
   perfilEmpresa   PerfilEmpresaProveedor?
   cotizaciones    CotizacionProveedor[]
+  plantillasContrato PlantillaContratoProveedor[]
+  contratosEmitidos ContratoEmitidoProveedor[]
   suscripcion     Suscripcion?
 
   @@index([tipo])
@@ -351,6 +371,7 @@ model ServicioProveedor {
 
   proveedor       Proveedor                 @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
   cotizacionItems CotizacionProveedorItem[]
+  plantillasContrato PlantillaContratoProveedor[]
 
   @@index([proveedorId])
 }
@@ -388,6 +409,7 @@ model MenuBanqueteProveedor {
   proveedor       Proveedor                 @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
   platillos       PlatilloMenuBanquete[]
   cotizacionItems CotizacionProveedorItem[]
+  plantillasContrato PlantillaContratoProveedor[]
 
   @@index([proveedorId])
   @@index([activo])
@@ -687,6 +709,7 @@ model CotizacionProveedor {
   proveedor        Proveedor                 @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
   clienteProveedor ClienteProveedor          @relation(fields: [clienteProveedorId], references: [id], onDelete: Restrict)
   items            CotizacionProveedorItem[]
+  contratoEmitido  ContratoEmitidoProveedor?
 
   @@unique([proveedorId, folio])
   @@index([proveedorId])
@@ -800,6 +823,64 @@ model Suscripcion {
   @@index([planId])
   @@index([estado])
   @@index([proximoCobro])
+}
+
+model PlantillaContratoProveedor {
+  id                      String                  @id @default(cuid())
+  proveedorId             String
+  nombre                  String
+  descripcion             String?
+  tipoServicio            TipoServicioContrato    @default(GENERAL)
+  servicioProveedorId     String?
+  menuBanqueteProveedorId String?
+  modo                    ModoPlantillaContrato   @default(EDITOR)
+  estado                  EstadoPlantillaContrato @default(BORRADOR)
+  secciones               Json?
+  archivoNombre           String?
+  archivoMime             String?
+  archivoContenido        String?                 @db.Text
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  proveedor Proveedor              @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  servicio  ServicioProveedor?     @relation(fields: [servicioProveedorId], references: [id], onDelete: SetNull)
+  menu      MenuBanqueteProveedor? @relation(fields: [menuBanqueteProveedorId], references: [id], onDelete: SetNull)
+  contratosEmitidos ContratoEmitidoProveedor[]
+
+  @@index([proveedorId])
+  @@index([tipoServicio])
+  @@index([estado])
+}
+
+model ContratoEmitidoProveedor {
+  id                    String    @id @default(cuid())
+  proveedorId           String
+  plantillaContratoId   String
+  cotizacionProveedorId String?   @unique
+  folio                 String
+  clienteNombre         String
+  clienteEmpresa        String?
+  clienteEmail          String?
+  clienteTelefono       String?
+  fechaEvento           DateTime?
+  lugarEvento           String?
+  montoTotal            Decimal?  @db.Decimal(12, 2)
+  servicioNombre        String?
+  enviadoEn             DateTime?
+  enviadoA              String?
+  asuntoEnvio           String?
+  mensajeEnvio          String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  proveedor  Proveedor                  @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  plantilla  PlantillaContratoProveedor @relation(fields: [plantillaContratoId], references: [id], onDelete: Restrict)
+  cotizacion CotizacionProveedor?       @relation(fields: [cotizacionProveedorId], references: [id], onDelete: SetNull)
+
+  @@unique([proveedorId, folio])
+  @@index([proveedorId])
+  @@index([plantillaContratoId])
+  @@index([createdAt])
 }
 
 model PagoSuscripcion {

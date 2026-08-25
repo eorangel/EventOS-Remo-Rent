@@ -10,10 +10,13 @@ import {
   ESTADO_COTIZACION_COLORS,
   ESTADO_COTIZACION_LABELS,
   MODALIDAD_PRECIO_MENU_LABELS,
+  TIPO_SERVICIO_CONTRATO_LABELS,
   formatMoney,
 } from '@/lib/labels';
 import type {
   ClienteProveedor,
+  ContratoEmitidoProveedor,
+  ContratoOpcionesCotizacion,
   CotizacionPdfResponse,
   CotizacionProveedor,
   EstadoCotizacion,
@@ -82,6 +85,10 @@ export function CotizacionProveedorForm({
   const [perfil, setPerfil] = useState<PerfilEmpresaResponse | null>(null);
   const [saving, setSaving] = useState(false);
   const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [modalContrato, setModalContrato] = useState(false);
+  const [opcionesContrato, setOpcionesContrato] = useState<ContratoOpcionesCotizacion | null>(null);
+  const [plantillaContratoId, setPlantillaContratoId] = useState('');
+  const [generandoContrato, setGenerandoContrato] = useState(false);
 
   const [clienteProveedorId, setClienteProveedorId] = useState(
     initialData?.clienteProveedorId ?? initialClienteId ?? '',
@@ -287,7 +294,7 @@ export function CotizacionProveedorForm({
     return { prod, usadoEnLineas, excede: usadoEnLineas > prod.cantidadDisponible };
   }
 
-  async function guardar(enviar = false) {
+  async function guardar(enviar = false, aprobar = false) {
     const items = payloadItems();
     if (mode === 'create') {
       if (clienteMode === 'existing' && !clienteProveedorId) {
@@ -342,7 +349,7 @@ export function CotizacionProveedorForm({
               }
           : {}),
         titulo: titulo || undefined,
-        estado: enviar ? 'ENVIADA' : estado,
+        estado: aprobar ? 'APROBADA' : enviar ? 'ENVIADA' : estado,
         fechaEvento: fechaEvento ? new Date(fechaEvento).toISOString() : undefined,
         lugarEntrega: lugarEntrega || undefined,
         costoEnvio: Number(costoEnvio) || 0,
@@ -369,12 +376,70 @@ export function CotizacionProveedorForm({
           method: 'PATCH',
           body: JSON.stringify(body),
         });
-        if (enviar) setEstado('ENVIADA');
+        if (aprobar) setEstado('APROBADA');
+        else if (enviar) setEstado('ENVIADA');
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'No se pudo guardar');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function abrirGenerarContrato() {
+    if (!cotizacionId) return;
+    setGenerandoContrato(true);
+    try {
+      const opciones = await apiFetch<ContratoOpcionesCotizacion>(
+        `/portal/cotizaciones/${cotizacionId}/contrato-opciones`,
+      );
+
+      if (opciones.emitidoExistente) {
+        router.push(
+          `/proveedor/contratos/${opciones.emitidoExistente.plantillaContratoId}?emitidoId=${opciones.emitidoExistente.id}`,
+        );
+        return;
+      }
+
+      if (!opciones.plantillas.length) {
+        const crear = confirm(
+          'Aún no tienes plantillas de contrato. ¿Quieres crear una ahora?',
+        );
+        if (crear) router.push('/proveedor/contratos/nueva');
+        return;
+      }
+
+      setOpcionesContrato(opciones);
+      setPlantillaContratoId(
+        opciones.plantillaSugeridaId ?? opciones.plantillas[0]?.id ?? '',
+      );
+      setModalContrato(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo preparar el contrato');
+    } finally {
+      setGenerandoContrato(false);
+    }
+  }
+
+  async function confirmarGenerarContrato() {
+    if (!cotizacionId || !plantillaContratoId) return;
+    setGenerandoContrato(true);
+    try {
+      const emitido = await apiFetch<ContratoEmitidoProveedor>(
+        `/portal/cotizaciones/${cotizacionId}/contrato`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ plantillaContratoId }),
+        },
+      );
+      setModalContrato(false);
+      router.push(
+        `/proveedor/contratos/${emitido.plantillaContratoId}?emitidoId=${emitido.id}`,
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo generar el contrato');
+    } finally {
+      setGenerandoContrato(false);
     }
   }
 
@@ -1041,6 +1106,16 @@ export function CotizacionProveedorForm({
               <Button variant="secondary" onClick={() => guardar(true)} disabled={saving}>
                 Marcar como enviada
               </Button>
+              {estado === 'ENVIADA' && (
+                <Button variant="secondary" onClick={() => guardar(false, true)} disabled={saving}>
+                  Marcar como aprobada
+                </Button>
+              )}
+              {estado === 'APROBADA' && (
+                <Button variant="secondary" onClick={abrirGenerarContrato} disabled={generandoContrato || saving}>
+                  {generandoContrato ? 'Preparando...' : 'Generar contrato'}
+                </Button>
+              )}
               <Button variant="secondary" onClick={generarPdf} disabled={generandoPdf || saving}>
                 {generandoPdf ? 'Generando...' : 'Generar PDF'}
               </Button>
@@ -1068,7 +1143,7 @@ export function CotizacionProveedorForm({
           </Button>
         </div>
         {mode === 'edit' && (
-          <div className="mx-auto mt-2 flex max-w-lg gap-2">
+          <div className="mx-auto mt-2 flex max-w-lg flex-wrap gap-2">
             <Button
               variant="secondary"
               className="flex-1 text-sm"
@@ -1077,6 +1152,26 @@ export function CotizacionProveedorForm({
             >
               Enviar
             </Button>
+            {estado === 'ENVIADA' ? (
+              <Button
+                variant="secondary"
+                className="flex-1 text-sm"
+                onClick={() => guardar(false, true)}
+                disabled={saving}
+              >
+                Aprobar
+              </Button>
+            ) : null}
+            {estado === 'APROBADA' ? (
+              <Button
+                variant="secondary"
+                className="flex-1 text-sm"
+                onClick={abrirGenerarContrato}
+                disabled={generandoContrato || saving}
+              >
+                Contrato
+              </Button>
+            ) : null}
             <Button
               variant="secondary"
               className="flex-1 text-sm"
@@ -1088,6 +1183,57 @@ export function CotizacionProveedorForm({
           </div>
         )}
       </div>
+
+      {modalContrato && opcionesContrato ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">Generar contrato</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Cotización {opcionesContrato.folioCotizacion} — {opcionesContrato.prefill.clienteNombre}
+            </p>
+
+            <label className="mt-4 block text-sm">
+              <span className="mb-1 block font-medium text-slate-700">Plantilla de contrato</span>
+              <select
+                value={plantillaContratoId}
+                onChange={(e) => setPlantillaContratoId(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              >
+                {opcionesContrato.plantillas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre} ({TIPO_SERVICIO_CONTRATO_LABELS[p.tipoServicio]})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
+              <p>
+                <strong>Cliente:</strong> {opcionesContrato.prefill.clienteNombre}
+              </p>
+              {opcionesContrato.prefill.montoTotal ? (
+                <p>
+                  <strong>Total:</strong> {opcionesContrato.prefill.montoTotal}
+                </p>
+              ) : null}
+              {opcionesContrato.prefill.fechaEvento ? (
+                <p>
+                  <strong>Evento:</strong> {opcionesContrato.prefill.fechaEvento}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setModalContrato(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={confirmarGenerarContrato} disabled={generandoContrato || !plantillaContratoId}>
+                {generandoContrato ? 'Generando...' : 'Continuar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

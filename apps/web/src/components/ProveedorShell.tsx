@@ -13,6 +13,7 @@ const mainNavItems = [
   { href: '/proveedor/calendario', label: 'Calendario', icon: '▦' },
   { href: '/proveedor/clientes', label: 'Clientes', icon: '◎' },
   { href: '/proveedor/cotizaciones', label: 'Cotizaciones', icon: '▤' },
+  { href: '/proveedor/contratos', label: 'Contratos', icon: '▧' },
   { href: '/proveedor/reportes', label: 'Reportes', icon: '◧' },
   { href: '/proveedor/cobros', label: 'Cobros', icon: '$' },
   { href: '/proveedor/catalogo', label: 'Catálogo', icon: '▣' },

@@ -15,7 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { RolUsuario, EstadoOrdenCobro, EstadoCotizacion } from '@prisma/client';
+import { RolUsuario, EstadoOrdenCobro, EstadoCotizacion, EstadoPlantillaContrato, TipoServicioContrato } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -49,6 +49,14 @@ import {
   CreateCotizacionProveedorDto,
   UpdateCotizacionProveedorDto,
 } from './dto/cotizacion-proveedor.dto';
+import {
+  CreatePlantillaContratoDto,
+  CrearContratoDesdeCotizacionDto,
+  EnviarContratoEmailDto,
+  GenerarPdfContratoDto,
+  SubirArchivoContratoDto,
+  UpdatePlantillaContratoDto,
+} from './dto/contrato-proveedor.dto';
 import { PortalService } from './portal.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -210,6 +218,85 @@ export class PortalController {
   @Post('cotizaciones/:id/pdf')
   generarPdfCotizacion(@Req() req: Request, @Param('id') id: string) {
     return this.portalService.generarPdfCotizacion(getAuthUser(req), id);
+  }
+
+  @Get('cotizaciones/:id/contrato-opciones')
+  getContratoOpcionesDesdeCotizacion(@Req() req: Request, @Param('id') id: string) {
+    return this.portalService.getContratoOpcionesDesdeCotizacion(getAuthUser(req), id);
+  }
+
+  @Post('cotizaciones/:id/contrato')
+  crearContratoDesdeCotizacion(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: CrearContratoDesdeCotizacionDto,
+  ) {
+    return this.portalService.crearContratoDesdeCotizacion(getAuthUser(req), id, dto);
+  }
+
+  @Get('contratos-emitidos/:id')
+  getContratoEmitido(@Req() req: Request, @Param('id') id: string) {
+    return this.portalService.getContratoEmitido(getAuthUser(req), id);
+  }
+
+  @Get('contratos')
+  listPlantillasContrato(
+    @Req() req: Request,
+    @Query('estado') estado?: EstadoPlantillaContrato,
+    @Query('tipoServicio') tipoServicio?: TipoServicioContrato,
+  ) {
+    return this.portalService.listPlantillasContrato(getAuthUser(req), { estado, tipoServicio });
+  }
+
+  @Post('contratos')
+  createPlantillaContrato(@Req() req: Request, @Body() dto: CreatePlantillaContratoDto) {
+    return this.portalService.createPlantillaContrato(getAuthUser(req), dto);
+  }
+
+  @Get('contratos/:id')
+  getPlantillaContrato(@Req() req: Request, @Param('id') id: string) {
+    return this.portalService.getPlantillaContrato(getAuthUser(req), id);
+  }
+
+  @Patch('contratos/:id')
+  updatePlantillaContrato(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: UpdatePlantillaContratoDto,
+  ) {
+    return this.portalService.updatePlantillaContrato(getAuthUser(req), id, dto);
+  }
+
+  @Delete('contratos/:id')
+  deletePlantillaContrato(@Req() req: Request, @Param('id') id: string) {
+    return this.portalService.deletePlantillaContrato(getAuthUser(req), id);
+  }
+
+  @Post('contratos/:id/archivo')
+  subirArchivoPlantillaContrato(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: SubirArchivoContratoDto,
+  ) {
+    return this.portalService.subirArchivoPlantillaContrato(getAuthUser(req), id, dto);
+  }
+
+  @Post('contratos/:id/pdf')
+  generarPdfPlantillaContrato(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: GenerarPdfContratoDto,
+  ) {
+    return this.portalService.generarPdfPlantillaContrato(getAuthUser(req), id, dto);
+  }
+
+  @Post('contratos/:id/enviar-email')
+  enviarContratoPorEmail(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() dto: EnviarContratoEmailDto,
+  ) {
+    return this.portalService.enviarContratoPorEmail(getAuthUser(req), id, dto);
   }
 
   @Get('calendario')

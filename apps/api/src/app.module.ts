@@ -43,6 +43,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     FinanzasModule,
     DocumentosModule,
     SuscripcionesModule,
+    MailModule,
   ],
   providers: [RolesGuard],
 })

@@ -223,6 +223,63 @@ export type CotizacionPdfResponse = {
   html: string;
 };
 
+export type ContratoPdfResponse = {
+  titulo: string;
+  html: string;
+};
+
+export type ContratoEmitidoProveedor = {
+  id: string;
+  proveedorId: string;
+  plantillaContratoId: string;
+  cotizacionProveedorId?: string | null;
+  folio: string;
+  clienteNombre: string;
+  clienteEmpresa?: string | null;
+  clienteEmail?: string | null;
+  clienteTelefono?: string | null;
+  fechaEvento?: string | null;
+  lugarEvento?: string | null;
+  montoTotal?: number | null;
+  servicioNombre?: string | null;
+  enviadoEn?: string | null;
+  enviadoA?: string | null;
+  asuntoEnvio?: string | null;
+  mensajeEnvio?: string | null;
+  cotizacion?: { id: string; folio: string; titulo?: string | null } | null;
+  plantilla?: PlantillaContratoProveedor;
+  reutilizado?: boolean;
+};
+
+export type ContratoOpcionesCotizacion = {
+  cotizacionId: string;
+  folioCotizacion: string;
+  prefill: {
+    clienteNombre: string;
+    clienteEmpresa?: string;
+    clienteEmail?: string;
+    clienteTelefono?: string;
+    fechaEvento?: string;
+    fechaEventoInput?: string;
+    lugarEvento?: string;
+    montoTotal?: string;
+    servicioNombre?: string;
+    tipoServicio: TipoServicioContrato;
+  };
+  plantillaSugeridaId?: string;
+  plantillas: PlantillaContratoProveedor[];
+  emitidoExistente?: ContratoEmitidoProveedor | null;
+};
+
+export type EnviarContratoEmailResponse = {
+  ok: boolean;
+  titulo: string;
+  destinatario: string;
+  asunto: string;
+  simulated: boolean;
+  mailConfigured: boolean;
+};
+
 export type HorarioDia = {
   dia: string;
   abre?: string;
@@ -570,6 +627,37 @@ export type MenuBanqueteProveedor = {
   notas?: string | null;
   activo: boolean;
   platillos?: PlatilloMenuBanquete[];
+};
+
+export type TipoServicioContrato = 'GENERAL' | 'RENTA_MOBILIARIO' | 'SERVICIO' | 'BANQUETE';
+export type ModoPlantillaContrato = 'EDITOR' | 'ARCHIVO';
+export type EstadoPlantillaContrato = 'BORRADOR' | 'ACTIVA' | 'ARCHIVADA';
+
+export type SeccionContrato = {
+  id: string;
+  titulo: string;
+  contenido: string;
+  orden: number;
+};
+
+export type PlantillaContratoProveedor = {
+  id: string;
+  proveedorId: string;
+  nombre: string;
+  descripcion?: string | null;
+  tipoServicio: TipoServicioContrato;
+  servicioProveedorId?: string | null;
+  menuBanqueteProveedorId?: string | null;
+  modo: ModoPlantillaContrato;
+  estado: EstadoPlantillaContrato;
+  secciones: SeccionContrato[];
+  archivoNombre?: string | null;
+  archivoMime?: string | null;
+  tieneArchivo?: boolean;
+  servicio?: { id: string; nombre: string } | null;
+  menu?: { id: string; nombre: string } | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ProveedorExpediente = Proveedor & {

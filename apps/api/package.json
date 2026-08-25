@@ -6,9 +6,10 @@
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/src/main",
+    "start:prod": "npm run prisma:deploy && node dist/src/main",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:seed:prod": "ts-node prisma/seed.production.ts",
     "prisma:clean-demo": "ts-node prisma/clean-demo.ts",
@@ -29,7 +30,8 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "nodemailer": "^6.9.16"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
@@ -37,6 +39,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.0.0",
+    "@types/nodemailer": "^6.4.17",
     "@types/passport-jwt": "^4.0.1",
     "prisma": "^6.0.0",
     "ts-node": "^10.9.2",

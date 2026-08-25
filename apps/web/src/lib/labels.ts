@@ -19,6 +19,9 @@ import type {
   EstadoVerificacionProveedor,
   OrigenCapturaProveedor,
   UnidadMedidaProducto,
+  TipoServicioContrato,
+  ModoPlantillaContrato,
+  EstadoPlantillaContrato,
 } from './types';
 
 export const ESTADO_EVENTO_LABELS: Record<EstadoEvento, string> = {
@@ -167,6 +170,30 @@ export const ESTADO_COTIZACION_COLORS: Record<EstadoCotizacion, string> = {
   ENVIADA: 'bg-blue-100 text-blue-800',
   APROBADA: 'bg-emerald-100 text-emerald-800',
   RECHAZADA: 'bg-red-100 text-red-800',
+};
+
+export const TIPO_SERVICIO_CONTRATO_LABELS: Record<TipoServicioContrato, string> = {
+  GENERAL: 'General',
+  RENTA_MOBILIARIO: 'Renta de mobiliario',
+  SERVICIO: 'Servicio',
+  BANQUETE: 'Banquete',
+};
+
+export const MODO_PLANTILLA_CONTRATO_LABELS: Record<ModoPlantillaContrato, string> = {
+  EDITOR: 'Editor interactivo',
+  ARCHIVO: 'Archivo cargado',
+};
+
+export const ESTADO_PLANTILLA_CONTRATO_LABELS: Record<EstadoPlantillaContrato, string> = {
+  BORRADOR: 'Borrador',
+  ACTIVA: 'Activa',
+  ARCHIVADA: 'Archivada',
+};
+
+export const ESTADO_PLANTILLA_CONTRATO_COLORS: Record<EstadoPlantillaContrato, string> = {
+  BORRADOR: 'bg-slate-100 text-slate-700',
+  ACTIVA: 'bg-emerald-100 text-emerald-800',
+  ARCHIVADA: 'bg-amber-100 text-amber-800',
 };
 
 export const TIPO_PROVEEDOR_LABELS: Record<TipoProveedor, string> = {
