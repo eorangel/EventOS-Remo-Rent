@@ -1,26 +1,26 @@
 # REMO / EventOS — Notas de sesión
 
-Punto de pausa antes de cambiar a otro repositorio.  
-**Actualizado:** 19 ago 2026
+Punto de pausa / retoma de trabajo.  
+**Actualizado:** 24 ago 2026
 
 ## Repositorio
 
 | | |
 |---|---|
 | **GitHub** | https://github.com/eorangel/EventOS-Remo-Rent |
-| **Local** | `C:\Users\ERICK ORTIZ\Projects\eventos` |
-| **Rama** | `main` (sincronizada con `origin/main`) |
+| **Local (única carpeta de trabajo)** | `C:\Users\ERICK ORTIZ\Projects\eventos` |
+| **Rama** | `main` @ `38d27c9` (sincronizada con `origin/main`) |
 | **Git (GitHub Desktop)** | `C:\Users\ERICK ORTIZ\AppData\Local\GitHubDesktop\app-3.6.3\resources\app\git\cmd\git.exe` |
+
+> **Importante:** No usar `Documents\GitHub\EventOS-Remo-Rent` — es un clon duplicado sin `.env` ni Docker configurados. Trabajar siempre en `Projects\eventos`.
 
 ### Últimos commits en main
 
 | Commit | Descripción |
 |--------|-------------|
-| `26cdac9` | UI cotizaciones responsiva + PDF profesional (menús, platillos, totales alineados) |
-| `cf1449f` | Catálogo servicios y menús banquete con platillos; integración en cotizaciones |
-| `1a1f391` | Admin `/eventos`: cotizaciones de proveedores en CRM |
-| `35e4774` | Reportes/dashboard proveedor con datos reales (cotizaciones, cobros) |
-| `8dcde5a` | Catálogo: fotos URL, miniaturas, eliminar productos |
+| `38d27c9` | Módulo contratos proveedor: plantillas, PDF, cotizaciones aprobadas, envío email |
+| `f53ecab` | Notas de sesión y gitignore para cambio de repositorio |
+| `26cdac9` | UI cotizaciones responsiva + PDF profesional |
 
 ## Producción
 
@@ -47,18 +47,30 @@ Railway auto-deploy al push en `main`. Verificar en **Deployments** que el commi
 - PDF al cliente: tabla alineada, badges, platillos del menú, totales en caja
 
 ### API / DB
-- Migración: `20260817223000_catalogo_servicios_banquetes`
-- Modelos: `MenuBanqueteProveedor`, `PlatilloMenuBanquete`
-- `CotizacionProveedorItem` extendido con `menuBanqueteProveedorId`, `servicioProveedorId`, `modalidadPrecioMenu`
+- Migraciones aplicadas localmente (24 ago 2026):
+  - `20260817223000_catalogo_servicios_banquetes`
+  - `20260824200000_plantillas_contrato_proveedor`
+  - `20260824210000_contratos_emitidos_email`
+- Modelos nuevos: `PlantillaContratoProveedor`, `ContratoEmitidoProveedor`
+- MailModule (SMTP) para envío de contratos por email
+- Producción: `prisma migrate deploy` corre al iniciar la API (`start:prod`)
+
+### Contratos proveedor (`/proveedor/contratos`)
+- Plantillas por tipo de servicio (editor interactivo o archivo PDF/DOC)
+- PDF listo para firmar
+- Generación desde cotización **Aprobada**
+- Envío por email al cliente
 
 ## Retomar este proyecto
 
 ```powershell
 cd "C:\Users\ERICK ORTIZ\Projects\eventos"
 & "C:\Users\ERICK ORTIZ\AppData\Local\GitHubDesktop\app-3.6.3\resources\app\git\cmd\git.exe" pull origin main
+npm run db:up    # si Docker no está corriendo
+npm run db:migrate
 ```
 
-1. Abrir carpeta `eventos` en Cursor (File → Open Folder)
+1. Abrir carpeta **`C:\Users\ERICK ORTIZ\Projects\eventos`** en Cursor (File → Open Folder)
 2. Verificar Railway deploy tras `git pull`
 3. Variables locales: `apps/api/.env`, `apps/web/.env.local` (no están en git)
 
