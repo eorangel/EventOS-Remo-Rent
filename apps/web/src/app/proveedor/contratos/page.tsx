@@ -7,7 +7,6 @@ import { apiFetch } from '@/lib/api';
 import {
   ESTADO_PLANTILLA_CONTRATO_COLORS,
   ESTADO_PLANTILLA_CONTRATO_LABELS,
-  MODO_PLANTILLA_CONTRATO_LABELS,
   TIPO_SERVICIO_CONTRATO_LABELS,
 } from '@/lib/labels';
 import type {
@@ -41,7 +40,7 @@ export default function ProveedorContratosPage() {
     <>
       <PageHeader
         title="Contratos"
-        description="Define plantillas de contrato por tipo de servicio, edítalas o carga un archivo y genera PDF listo para firmar"
+        description="Arma plantillas de contrato con cláusulas editables y vista previa en tiempo real"
         action={
           <Link href="/proveedor/contratos/nueva">
             <Button>+ Nueva plantilla</Button>
@@ -117,7 +116,7 @@ export default function ProveedorContratosPage() {
                       {ESTADO_PLANTILLA_CONTRATO_LABELS[p.estado]}
                     </Badge>
                     <Badge className="bg-slate-100 text-slate-700">
-                      {MODO_PLANTILLA_CONTRATO_LABELS[p.modo]}
+                      {p.secciones?.length ?? 0} cláusulas
                     </Badge>
                   </div>
                 </div>

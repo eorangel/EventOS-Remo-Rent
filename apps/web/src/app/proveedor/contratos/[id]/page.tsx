@@ -29,7 +29,7 @@ function PlantillaContratoDetalleContent() {
         title={data?.nombre ?? 'Plantilla de contrato'}
         description={
           data
-            ? `${data.modo === 'EDITOR' ? `${data.secciones.length} cláusulas` : 'Archivo cargado'}`
+            ? `${data.secciones?.length ?? 0} cláusulas · vista previa en tiempo real`
             : 'Editar plantilla'
         }
         action={

@@ -9,7 +9,7 @@ export default function NuevaPlantillaContratoPage() {
     <>
       <PageHeader
         title="Nueva plantilla de contrato"
-        description="Arma cláusulas personalizadas o carga un archivo existente"
+        description="Edita cláusulas y personaliza el contrato con vista previa en tiempo real"
         action={
           <Link href="/proveedor/contratos">
             <Button variant="secondary">← Contratos</Button>
