@@ -90,6 +90,7 @@ export function ContratoProveedorForm({
   const [enviandoEmail, setEnviandoEmail] = useState(false);
   const [emitido, setEmitido] = useState<ContratoEmitidoProveedor | null>(null);
   const [activeSeccionId, setActiveSeccionId] = useState<string | null>(null);
+  const [expandedSeccionId, setExpandedSeccionId] = useState<string | null>(null);
 
   const [nombre, setNombre] = useState(initialData?.nombre ?? '');
   const [descripcion, setDescripcion] = useState(initialData?.descripcion ?? '');
@@ -178,6 +179,18 @@ export function ContratoProveedorForm({
     }
   }, [mode, tipoServicio, secciones.length]);
 
+  useEffect(() => {
+    if (secciones.length === 0) return;
+    setExpandedSeccionId((prev) => {
+      if (prev && secciones.some((s) => s.id === prev)) return prev;
+      return secciones[0].id;
+    });
+    setActiveSeccionId((prev) => {
+      if (prev && secciones.some((s) => s.id === prev)) return prev;
+      return secciones[0].id;
+    });
+  }, [secciones]);
+
   function buildPayload(estadoFinal: EstadoPlantillaContrato) {
     return {
       nombre: nombre.trim(),
@@ -238,11 +251,24 @@ export function ContratoProveedorForm({
 
   function focusSeccion(seccionId: string) {
     setActiveSeccionId(seccionId);
-    seccionRefs.current[seccionId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setExpandedSeccionId(seccionId);
+    seccionRefs.current[seccionId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     document.getElementById(`preview-${seccionId}`)?.scrollIntoView({
       behavior: 'smooth',
       block: 'center',
     });
+  }
+
+  function toggleSeccion(seccionId: string) {
+    setActiveSeccionId(seccionId);
+    setExpandedSeccionId((prev) => (prev === seccionId ? null : seccionId));
+  }
+
+  function agregarClausula() {
+    const nueva = nuevaSeccionContrato(secciones.length);
+    setSecciones((prev) => [...prev, nueva]);
+    setActiveSeccionId(nueva.id);
+    setExpandedSeccionId(nueva.id);
   }
 
   async function guardar(nuevoEstado?: EstadoPlantillaContrato) {
@@ -417,8 +443,8 @@ export function ContratoProveedorForm({
         </Card>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.95fr)] xl:grid-cols-[minmax(0,1.05fr)_minmax(380px,1fr)]">
+        <div className="space-y-5 min-w-0">
           <Card>
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <Badge className={ESTADO_PLANTILLA_CONTRATO_COLORS[estado]}>
@@ -558,7 +584,7 @@ export function ContratoProveedorForm({
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Cláusulas del contrato</h2>
                 <p className="text-sm text-slate-600">
-                  Edita cada sección. Haz clic en la vista previa para ubicarte.
+                  Usa <strong>+ / −</strong> para expandir o colapsar. Solo una abierta a la vez.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -566,26 +592,26 @@ export function ContratoProveedorForm({
                   type="button"
                   variant="secondary"
                   className="text-xs"
-                  onClick={() => setSecciones(seccionesSugeridas(tipoServicio))}
+                  onClick={() => {
+                    const sugeridas = seccionesSugeridas(tipoServicio);
+                    setSecciones(sugeridas);
+                    setExpandedSeccionId(sugeridas[0]?.id ?? null);
+                    setActiveSeccionId(sugeridas[0]?.id ?? null);
+                  }}
                 >
                   Restaurar plantilla
                 </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="text-xs"
-                  onClick={() =>
-                    setSecciones((prev) => [...prev, nuevaSeccionContrato(prev.length)])
-                  }
-                >
+                <Button type="button" variant="secondary" className="text-xs" onClick={agregarClausula}>
                   + Cláusula
                 </Button>
               </div>
             </div>
 
-            <div className="mb-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3">
-              <p className="mb-2 text-xs font-medium text-slate-600">Variables disponibles</p>
-              <div className="flex flex-wrap gap-1.5">
+            <details className="mb-4 rounded-lg border border-slate-200 bg-slate-50/80">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-800">
+                Variables disponibles ({'{{cliente_nombre}}'}, {'{{fecha_evento}}'}, …)
+              </summary>
+              <div className="flex flex-wrap gap-1.5 border-t border-slate-200 px-3 py-2">
                 {VARIABLES_CONTRATO_AYUDA.map((v) => (
                   <span
                     key={v.key}
@@ -595,163 +621,152 @@ export function ContratoProveedorForm({
                   </span>
                 ))}
               </div>
-            </div>
+            </details>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {secciones.map((sec, index) => {
                 const isActive = activeSeccionId === sec.id;
+                const isExpanded = expandedSeccionId === sec.id;
+                const tituloPreview = sec.titulo.trim() || 'Sin título';
+
                 return (
                   <div
                     key={sec.id}
                     ref={(el) => {
                       seccionRefs.current[sec.id] = el;
                     }}
-                    className={`rounded-xl border p-4 transition ${
+                    className={`overflow-hidden rounded-xl border transition ${
                       isActive
-                        ? 'border-teal-400 bg-teal-50/40 ring-1 ring-teal-300'
-                        : 'border-slate-200'
+                        ? 'border-teal-400 bg-white shadow-sm ring-1 ring-teal-200'
+                        : 'border-slate-200 bg-slate-50/50'
                     }`}
                   >
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 px-3 py-2.5">
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        aria-label={isExpanded ? 'Colapsar cláusula' : 'Expandir cláusula'}
+                        onClick={() => toggleSeccion(sec.id)}
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg font-bold leading-none transition ${
+                          isExpanded
+                            ? 'bg-teal-600 text-white hover:bg-teal-700'
+                            : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {isExpanded ? '−' : '+'}
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => focusSeccion(sec.id)}
-                        className="text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-teal-700"
+                        className="min-w-0 flex-1 text-left"
                       >
-                        Cláusula {index + 1} · Ver en contrato
+                        <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          Cláusula {index + 1}
+                        </span>
+                        <span className="block truncate text-sm font-medium text-slate-800">
+                          {tituloPreview}
+                        </span>
                       </button>
-                      <div className="flex flex-wrap gap-1">
-                        <Button
+
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <button
                           type="button"
-                          variant="secondary"
-                          className="px-2 py-1 text-xs"
                           disabled={index === 0}
                           onClick={() => moverSeccion(index, -1)}
+                          className="rounded p-1.5 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30"
+                          title="Subir"
                         >
                           ↑
-                        </Button>
-                        <Button
+                        </button>
+                        <button
                           type="button"
-                          variant="secondary"
-                          className="px-2 py-1 text-xs"
                           disabled={index === secciones.length - 1}
                           onClick={() => moverSeccion(index, 1)}
+                          className="rounded p-1.5 text-slate-500 hover:bg-white hover:text-slate-800 disabled:opacity-30"
+                          title="Bajar"
                         >
                           ↓
-                        </Button>
-                        <Button
+                        </button>
+                        <button
                           type="button"
-                          variant="danger"
-                          className="px-2 py-1 text-xs"
-                          onClick={() =>
-                            setSecciones((prev) =>
-                              prev
-                                .filter((s) => s.id !== sec.id)
-                                .map((s, idx) => ({ ...s, orden: idx })),
-                            )
-                          }
+                          onClick={() => {
+                            const next = secciones.filter((s) => s.id !== sec.id).map((s, idx) => ({ ...s, orden: idx }));
+                            setSecciones(next);
+                            if (expandedSeccionId === sec.id) {
+                              setExpandedSeccionId(next[0]?.id ?? null);
+                            }
+                          }}
+                          className="rounded p-1.5 text-red-500 hover:bg-red-50"
+                          title="Eliminar"
                         >
-                          Eliminar
-                        </Button>
+                          ✕
+                        </button>
                       </div>
                     </div>
 
-                    <label className="mb-3 block text-sm">
-                      <span className="mb-1 block font-medium text-slate-700">Título</span>
-                      <input
-                        value={sec.titulo}
-                        onFocus={() => setActiveSeccionId(sec.id)}
-                        onChange={(e) =>
-                          setSecciones((prev) =>
-                            prev.map((s) =>
-                              s.id === sec.id ? { ...s, titulo: e.target.value } : s,
-                            ),
-                          )
-                        }
-                      />
-                    </label>
+                    {isExpanded ? (
+                      <div className="space-y-3 border-t border-slate-200 bg-white px-4 py-4">
+                        <label className="block text-sm">
+                          <span className="mb-1 block font-medium text-slate-700">Título</span>
+                          <input
+                            value={sec.titulo}
+                            onFocus={() => setActiveSeccionId(sec.id)}
+                            onChange={(e) =>
+                              setSecciones((prev) =>
+                                prev.map((s) =>
+                                  s.id === sec.id ? { ...s, titulo: e.target.value } : s,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
 
-                    <label className="block text-sm">
-                      <span className="mb-1 block font-medium text-slate-700">Contenido</span>
-                      <textarea
-                        value={sec.contenido}
-                        onFocus={() => setActiveSeccionId(sec.id)}
-                        onChange={(e) =>
-                          setSecciones((prev) =>
-                            prev.map((s) =>
-                              s.id === sec.id ? { ...s, contenido: e.target.value } : s,
-                            ),
-                          )
-                        }
-                        rows={4}
-                      />
-                    </label>
+                        <label className="block text-sm">
+                          <span className="mb-1 block font-medium text-slate-700">Contenido</span>
+                          <textarea
+                            value={sec.contenido}
+                            onFocus={() => setActiveSeccionId(sec.id)}
+                            onChange={(e) =>
+                              setSecciones((prev) =>
+                                prev.map((s) =>
+                                  s.id === sec.id ? { ...s, contenido: e.target.value } : s,
+                                ),
+                              )
+                            }
+                            rows={5}
+                            className="min-h-[120px] resize-y"
+                          />
+                        </label>
 
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {VARIABLES_CONTRATO_AYUDA.slice(0, 6).map((v) => (
-                        <button
-                          key={v.key}
-                          type="button"
-                          onClick={() => insertarVariable(sec.id, v.key)}
-                          className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-200"
-                        >
-                          + {v.label}
-                        </button>
-                      ))}
-                    </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {VARIABLES_CONTRATO_AYUDA.slice(0, 6).map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              onClick={() => insertarVariable(sec.id, v.key)}
+                              className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-200"
+                            >
+                              + {v.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-t border-slate-100 px-4 py-2">
+                        <p className="line-clamp-2 text-xs text-slate-500">
+                          {sec.contenido.trim() || 'Sin contenido — expande para editar'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           </Card>
-
-          <Card>
-            <h2 className="mb-1 text-lg font-semibold text-slate-900">Enviar por correo</h2>
-            <p className="mb-4 text-sm text-slate-600">
-              El contrato se envía al cliente con el contenido listo para revisión y firma.
-            </p>
-
-            <div className="grid gap-4">
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Correo del cliente</span>
-                <input
-                  type="email"
-                  value={emailDestinatario}
-                  onChange={(e) => setEmailDestinatario(e.target.value)}
-                  placeholder={pdfVars.clienteEmail || 'cliente@ejemplo.com'}
-                />
-              </label>
-
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Asunto</span>
-                <input
-                  value={emailAsunto}
-                  onChange={(e) => setEmailAsunto(e.target.value)}
-                  placeholder="Contrato de servicios para tu evento"
-                />
-              </label>
-
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-slate-700">Mensaje</span>
-                <textarea
-                  value={emailMensaje}
-                  onChange={(e) => setEmailMensaje(e.target.value)}
-                  rows={3}
-                />
-              </label>
-
-              <Button
-                type="button"
-                onClick={() => void enviarEmail()}
-                disabled={enviandoEmail || saving}
-              >
-                {enviandoEmail ? 'Enviando...' : 'Enviar contrato por email'}
-              </Button>
-            </div>
-          </Card>
         </div>
 
-        <div className="xl:sticky xl:top-4 xl:self-start">
+        <div className="min-w-0 lg:sticky lg:top-4 lg:self-start">
           <ContratoPreview
             nombre={nombre}
             tipoServicio={tipoServicio}
@@ -775,6 +790,54 @@ export function ContratoProveedorForm({
           </div>
         </div>
       </div>
+
+      <Card>
+        <h2 className="mb-1 text-lg font-semibold text-slate-900">Enviar por correo</h2>
+        <p className="mb-5 text-sm text-slate-600">
+          El contrato se envía al cliente con el contenido listo para revisión y firma.
+        </p>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <label className="block text-sm lg:col-span-2">
+            <span className="mb-1.5 block font-medium text-slate-700">Correo del cliente</span>
+            <input
+              type="email"
+              value={emailDestinatario}
+              onChange={(e) => setEmailDestinatario(e.target.value)}
+              placeholder={pdfVars.clienteEmail || 'cliente@ejemplo.com'}
+            />
+          </label>
+
+          <label className="block text-sm lg:col-span-2">
+            <span className="mb-1.5 block font-medium text-slate-700">Asunto</span>
+            <input
+              value={emailAsunto}
+              onChange={(e) => setEmailAsunto(e.target.value)}
+              placeholder="Contrato de servicios para tu evento"
+            />
+          </label>
+
+          <label className="block text-sm lg:col-span-2">
+            <span className="mb-1.5 block font-medium text-slate-700">Mensaje</span>
+            <textarea
+              value={emailMensaje}
+              onChange={(e) => setEmailMensaje(e.target.value)}
+              rows={5}
+              className="min-h-[140px] resize-y"
+            />
+          </label>
+
+          <div className="lg:col-span-2">
+            <Button
+              type="button"
+              onClick={() => void enviarEmail()}
+              disabled={enviandoEmail || saving}
+            >
+              {enviandoEmail ? 'Enviando...' : 'Enviar contrato por email'}
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:pl-72">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
