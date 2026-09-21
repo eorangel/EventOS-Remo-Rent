@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { CopilotoWelcome } from '@/components/CopilotoWelcome';
 import { DashboardFinancieroProveedor } from '@/components/DashboardFinancieroProveedor';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
@@ -12,10 +13,11 @@ import {
   ESTADO_VERIFICACION_LABELS,
   formatMoney,
 } from '@/lib/labels';
-import type { PortalDashboard } from '@/lib/types';
+import type { CopilotoInicio, PortalDashboard } from '@/lib/types';
 
 export default function ProveedorDashboardPage() {
   const [data, setData] = useState<PortalDashboard | null>(null);
+  const [copiloto, setCopiloto] = useState<CopilotoInicio | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -23,9 +25,15 @@ export default function ProveedorDashboardPage() {
     let cancelled = false;
     setLoading(true);
     setError('');
-    apiFetch<PortalDashboard>('/portal/dashboard')
-      .then((res) => {
-        if (!cancelled) setData(res);
+    Promise.all([
+      apiFetch<PortalDashboard>('/portal/dashboard'),
+      apiFetch<CopilotoInicio>('/portal/copiloto/inicio'),
+    ])
+      .then(([dashboard, inicio]) => {
+        if (!cancelled) {
+          setData(dashboard);
+          setCopiloto(inicio);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Error');
@@ -41,7 +49,7 @@ export default function ProveedorDashboardPage() {
   return (
     <>
       <PageHeader
-        title={data?.proveedor.nombre ?? 'Mi negocio'}
+        title={copiloto?.nombreEmpresa ?? data?.proveedor.nombre ?? 'Mi negocio'}
         description="Tu centro de control — finanzas, clientes y operación en un vistazo"
       />
 
@@ -71,6 +79,8 @@ export default function ProveedorDashboardPage() {
         </div>
       ) : data ? (
         <div className="space-y-8">
+          {copiloto && <CopilotoWelcome data={copiloto} />}
+
           {data.financiero ? (
             <DashboardFinancieroProveedor data={data.financiero} />
           ) : (

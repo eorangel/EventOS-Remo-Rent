@@ -325,6 +325,50 @@ export type PerfilEmpresaData = {
   updatedAt: string | null;
 };
 
+export type CopilotoPrioridadTipo =
+  | 'COBRO_VENCIDO'
+  | 'COBRO_HOY'
+  | 'ENTREGA'
+  | 'RECOGIDA'
+  | 'EVENTO'
+  | 'SEGUIMIENTO'
+  | 'COTIZACION'
+  | 'PERFIL';
+
+export type CopilotoPrioridad = {
+  id: string;
+  tipo: CopilotoPrioridadTipo;
+  titulo: string;
+  descripcion?: string;
+  enlace: string;
+  urgencia: 'alta' | 'media' | 'baja';
+};
+
+export type CopilotoAccionRapida = {
+  id: string;
+  label: string;
+  enlace: string;
+};
+
+export type CopilotoInicio = {
+  saludo: string;
+  mensaje: string;
+  fecha: string;
+  nombreUsuario: string;
+  nombreEmpresa: string;
+  resumenDia: {
+    entregas: number;
+    recogidas: number;
+    eventos: number;
+    cobros: number;
+    seguimientos: number;
+    cobrosVencidos: number;
+  };
+  prioridades: CopilotoPrioridad[];
+  accionesRapidas: CopilotoAccionRapida[];
+  vacio: boolean;
+};
+
 export type BriefingPreview = {
   fecha: string;
   fechaLabel: string;

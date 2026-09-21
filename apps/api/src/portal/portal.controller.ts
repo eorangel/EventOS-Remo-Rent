@@ -58,6 +58,7 @@ import {
   UpdatePlantillaContratoDto,
 } from './dto/contrato-proveedor.dto';
 import { BriefingService } from './briefing.service';
+import { CopilotoService } from './copiloto.service';
 import { PortalService } from './portal.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -67,6 +68,7 @@ export class PortalController {
   constructor(
     private portalService: PortalService,
     private briefingService: BriefingService,
+    private copilotoService: CopilotoService,
     private catalogoService: CatalogoProveedorService,
     private banqueteService: CatalogoBanqueteService,
   ) {}
@@ -74,6 +76,11 @@ export class PortalController {
   @Get('dashboard')
   dashboard(@Req() req: Request) {
     return this.portalService.getDashboard(getAuthUser(req));
+  }
+
+  @Get('copiloto/inicio')
+  copilotoInicio(@Req() req: Request) {
+    return this.copilotoService.getInicio(getAuthUser(req));
   }
 
   @Get('reportes')
