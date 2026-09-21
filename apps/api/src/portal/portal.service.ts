@@ -49,6 +49,7 @@ import {
 import {
   buildContratoArchivoHtml,
   buildContratoProveedorHtml,
+  sanitizeContratoFilename,
   seccionesPorDefecto,
   wrapContratoEmailHtml,
   type SeccionContrato,
@@ -58,6 +59,8 @@ import {
   sugerirPlantillaId,
 } from './cotizacion-contrato.utils';
 import { MailService } from '../mail/mail.service';
+import { HtmlPdfService } from '../pdf/html-pdf.service';
+import type Mail from 'nodemailer/lib/mailer';
 import {
   buildCotizacionProveedorHtml,
   calcTotalesCotizacionProveedor,
@@ -120,6 +123,7 @@ export class PortalService {
     private catalogoService: CatalogoProveedorService,
     private banqueteService: CatalogoBanqueteService,
     private mailService: MailService,
+    private htmlPdfService: HtmlPdfService,
   ) {}
 
   async getDashboard(user: AuthUser) {
@@ -164,7 +168,10 @@ export class PortalService {
     ] = await Promise.all([
       this.prisma.clienteProveedor.count({ where: { proveedorId, activo: true } }),
       this.prisma.ordenCobro.count({
-        where: { proveedorId, estado: { in: ['PENDIENTE', 'BORRADOR', 'VENCIDO'] } },
+        where: {
+          proveedorId,
+          estado: { in: ['PENDIENTE', 'BORRADOR', 'VENCIDO', 'ANTICIPO'] },
+        },
       }),
       this.prisma.ordenCobro.count({ where: { proveedorId, estado: 'PAGADO' } }),
       this.prisma.clienteProveedor.count({ where: { proveedorId } }),
@@ -187,7 +194,14 @@ export class PortalService {
       this.prisma.ordenCobro.aggregate({
         where: {
           proveedorId,
-          estado: { in: [EstadoOrdenCobro.PENDIENTE, EstadoOrdenCobro.VENCIDO, EstadoOrdenCobro.BORRADOR] },
+          estado: {
+            in: [
+              EstadoOrdenCobro.PENDIENTE,
+              EstadoOrdenCobro.ANTICIPO,
+              EstadoOrdenCobro.VENCIDO,
+              EstadoOrdenCobro.BORRADOR,
+            ],
+          },
         },
         _sum: { monto: true },
       }),
@@ -354,7 +368,12 @@ export class PortalService {
           where: {
             proveedorId,
             estado: {
-              in: [EstadoOrdenCobro.BORRADOR, EstadoOrdenCobro.PENDIENTE, EstadoOrdenCobro.VENCIDO],
+              in: [
+                EstadoOrdenCobro.BORRADOR,
+                EstadoOrdenCobro.PENDIENTE,
+                EstadoOrdenCobro.ANTICIPO,
+                EstadoOrdenCobro.VENCIDO,
+              ],
             },
           },
           include: { clienteProveedor: true },
@@ -931,12 +950,7 @@ export class PortalService {
     const proveedorId = requireProveedorUser(user);
     const existing = await this.ensureCobro(proveedorId, id);
 
-    const pagadoEn =
-      dto.estado === EstadoOrdenCobro.PAGADO && existing.estado !== EstadoOrdenCobro.PAGADO
-        ? new Date()
-        : dto.estado && dto.estado !== EstadoOrdenCobro.PAGADO
-          ? null
-          : existing.pagadoEn;
+    const pagadoEn = this.resolvePagadoEnCobro(existing.estado, dto.estado, existing.pagadoEn);
 
     const updated = await this.prisma.ordenCobro.update({
       where: { id },
@@ -955,6 +969,42 @@ export class PortalService {
       estado: EstadoOrdenCobro.PAGADO,
       referencia,
     });
+  }
+
+  async marcarCobroAnticipo(user: AuthUser, id: string, referencia?: string) {
+    return this.updateCobro(user, id, {
+      estado: EstadoOrdenCobro.ANTICIPO,
+      referencia,
+    });
+  }
+
+  private resolvePagadoEnCobro(
+    estadoActual: EstadoOrdenCobro,
+    estadoNuevo?: EstadoOrdenCobro,
+    pagadoEnActual?: Date | null,
+  ): Date | null | undefined {
+    if (!estadoNuevo) return undefined;
+
+    if (
+      estadoNuevo === EstadoOrdenCobro.PAGADO ||
+      estadoNuevo === EstadoOrdenCobro.ANTICIPO
+    ) {
+      if (
+        estadoActual !== EstadoOrdenCobro.PAGADO &&
+        estadoActual !== EstadoOrdenCobro.ANTICIPO
+      ) {
+        return new Date();
+      }
+      if (
+        estadoNuevo === EstadoOrdenCobro.PAGADO &&
+        estadoActual === EstadoOrdenCobro.ANTICIPO
+      ) {
+        return new Date();
+      }
+      return pagadoEnActual ?? null;
+    }
+
+    return null;
   }
 
   async getCalendario(user: AuthUser, desde: string, hasta: string) {
@@ -1009,7 +1059,13 @@ export class PortalService {
         this.prisma.ordenCobro.findMany({
           where: {
             proveedorId,
-            estado: { in: [EstadoOrdenCobro.PENDIENTE, EstadoOrdenCobro.VENCIDO] },
+            estado: {
+              in: [
+                EstadoOrdenCobro.PENDIENTE,
+                EstadoOrdenCobro.ANTICIPO,
+                EstadoOrdenCobro.VENCIDO,
+              ],
+            },
           },
           include: { clienteProveedor: true },
         }),
@@ -1206,7 +1262,13 @@ export class PortalService {
         this.prisma.ordenCobro.findMany({
           where: {
             proveedorId,
-            estado: { in: [EstadoOrdenCobro.PENDIENTE, EstadoOrdenCobro.VENCIDO] },
+            estado: {
+              in: [
+                EstadoOrdenCobro.PENDIENTE,
+                EstadoOrdenCobro.ANTICIPO,
+                EstadoOrdenCobro.VENCIDO,
+              ],
+            },
           },
           include: { clienteProveedor: true },
           orderBy: [{ fechaVencimiento: 'asc' }, { createdAt: 'asc' }],
@@ -1335,7 +1397,10 @@ export class PortalService {
       const vence = c.fechaVencimiento;
       const vencido =
         c.estado === EstadoOrdenCobro.VENCIDO ||
-        (vence != null && vence < inicio && c.estado === EstadoOrdenCobro.PENDIENTE);
+        (vence != null &&
+          vence < inicio &&
+          (c.estado === EstadoOrdenCobro.PENDIENTE ||
+            c.estado === EstadoOrdenCobro.ANTICIPO));
       return {
         id: c.id,
         titulo: c.concepto,
@@ -2678,35 +2743,20 @@ export class PortalService {
       vars.asunto?.trim() ||
       `Contrato — ${proveedor.nombre}${vars.clienteNombre ? ` — ${vars.clienteNombre}` : ''}`;
 
-    const attachments =
-      plantilla.modo === ModoPlantillaContrato.ARCHIVO &&
-      plantilla.archivoContenido &&
-      plantilla.archivoMime === 'application/pdf'
-        ? [
-            {
-              filename: plantilla.archivoNombre ?? `${plantilla.nombre}.pdf`,
-              content: Buffer.from(plantilla.archivoContenido, 'base64'),
-              contentType: 'application/pdf',
-            },
-          ]
-        : undefined;
-
-    const contractHtml =
-      attachments != null
-        ? `<p>Adjuntamos el contrato <strong>${plantilla.nombre}</strong> en PDF para tu revisión y firma.</p>`
-        : html;
+    const attachments = await this.buildContratoEmailAttachments(plantilla, titulo, html);
 
     const emailHtml = wrapContratoEmailHtml({
       mensaje: vars.mensaje,
       proveedorNombre: proveedor.nombre,
       clienteNombre: vars.clienteNombre,
-      contractHtml,
+      adjuntoPdf: true,
     });
 
     const result = await this.mailService.sendMail({
       to: destinatario,
       subject: asunto,
       html: emailHtml,
+      text: `Contrato de ${proveedor.nombre} adjunto en PDF para revisión y firma.`,
       replyTo: proveedor.email ?? undefined,
       attachments,
     });
@@ -2732,6 +2782,41 @@ export class PortalService {
       simulated: result.simulated ?? false,
       mailConfigured: this.mailService.isConfigured(),
     };
+  }
+
+  private async buildContratoEmailAttachments(
+    plantilla: {
+      modo: ModoPlantillaContrato;
+      nombre: string;
+      archivoNombre: string | null;
+      archivoMime: string | null;
+      archivoContenido: string | null;
+    },
+    titulo: string,
+    html: string,
+  ): Promise<Mail.Attachment[]> {
+    if (
+      plantilla.modo === ModoPlantillaContrato.ARCHIVO &&
+      plantilla.archivoContenido &&
+      plantilla.archivoMime
+    ) {
+      return [
+        {
+          filename: plantilla.archivoNombre ?? `${sanitizeContratoFilename(titulo)}.pdf`,
+          content: Buffer.from(plantilla.archivoContenido, 'base64'),
+          contentType: plantilla.archivoMime,
+        },
+      ];
+    }
+
+    const pdfBuffer = await this.htmlPdfService.fromHtml(html);
+    return [
+      {
+        filename: `${sanitizeContratoFilename(titulo)}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ];
   }
 
   private async buildPlantillaContratoDocumento(

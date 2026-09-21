@@ -349,7 +349,7 @@ export function ContratoProveedorForm({
           'Correo no configurado en el servidor. Configura RESEND_API_KEY en Railway (recomendado) o SMTP para envío local.',
         );
       } else {
-        alert(`Contrato enviado a ${res.destinatario}`);
+        alert(`Contrato en PDF enviado a ${res.destinatario}`);
       }
 
       if (emitidoIdFromUrl) {
@@ -794,7 +794,7 @@ export function ContratoProveedorForm({
       <Card>
         <h2 className="mb-1 text-lg font-semibold text-slate-900">Enviar por correo</h2>
         <p className="mb-5 text-sm text-slate-600">
-          El contrato se envía al cliente con el contenido listo para revisión y firma.
+          El contrato se envía al cliente como PDF adjunto para revisión y firma de conformidad.
         </p>
 
         <div className="grid gap-4 lg:grid-cols-2">

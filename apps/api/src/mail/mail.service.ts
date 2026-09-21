@@ -134,6 +134,7 @@ export class MailService {
           return {
             filename: attachment.filename,
             content,
+            ...(attachment.contentType ? { content_type: attachment.contentType } : {}),
           };
         })
         .filter(Boolean);

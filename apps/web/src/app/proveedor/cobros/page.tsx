@@ -15,6 +15,7 @@ import type { ClienteProveedor, EstadoOrdenCobro, OrdenCobro } from '@/lib/types
 const ESTADOS_COBRO: EstadoOrdenCobro[] = [
   'BORRADOR',
   'PENDIENTE',
+  'ANTICIPO',
   'PAGADO',
   'VENCIDO',
   'CANCELADO',
@@ -102,6 +103,16 @@ export default function ProveedorCobrosPage() {
   async function marcarPagado(id: string) {
     const referencia = window.prompt('Referencia de pago (SPEI, transferencia, etc.):') ?? undefined;
     await apiFetch(`/portal/cobros/${id}/marcar-pagado`, {
+      method: 'POST',
+      body: JSON.stringify({ referencia }),
+    });
+    await cargar();
+  }
+
+  async function marcarAnticipo(id: string) {
+    const referencia =
+      window.prompt('Referencia del anticipo (SPEI, transferencia, etc.):') ?? undefined;
+    await apiFetch(`/portal/cobros/${id}/marcar-anticipo`, {
       method: 'POST',
       body: JSON.stringify({ referencia }),
     });
@@ -254,8 +265,15 @@ export default function ProveedorCobrosPage() {
                           <p className="mt-1 text-xs text-slate-600">Ref: {cobro.referencia}</p>
                         )}
                         {cobro.pagadoEn && (
-                          <p className="mt-1 text-xs text-emerald-700">
-                            Pagado: {formatFechaCorta(cobro.pagadoEn)}
+                          <p
+                            className={`mt-1 text-xs ${
+                              cobro.estado === 'ANTICIPO'
+                                ? 'text-sky-700'
+                                : 'text-emerald-700'
+                            }`}
+                          >
+                            {cobro.estado === 'ANTICIPO' ? 'Anticipo recibido' : 'Pagado'}:{' '}
+                            {formatFechaCorta(cobro.pagadoEn)}
                           </p>
                         )}
                       </div>
@@ -281,6 +299,26 @@ export default function ProveedorCobrosPage() {
                           </select>
                         </label>
                         {cobro.estado === 'PENDIENTE' && (
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="text-xs"
+                              onClick={() => marcarAnticipo(cobro.id)}
+                            >
+                              Registrar anticipo
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="text-xs"
+                              onClick={() => marcarPagado(cobro.id)}
+                            >
+                              Marcar pagado
+                            </Button>
+                          </div>
+                        )}
+                        {cobro.estado === 'ANTICIPO' && (
                           <Button
                             type="button"
                             variant="secondary"

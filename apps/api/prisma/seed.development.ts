@@ -294,6 +294,29 @@ export async function seedDevelopment() {
     },
   });
 
+  await prisma.ordenCobro.upsert({
+    where: {
+      proveedorId_folio: {
+        proveedorId: 'seed-prov-1',
+        folio: 'COB-20260810-0003',
+      },
+    },
+    update: {},
+    create: {
+      proveedorId: 'seed-prov-1',
+      clienteProveedorId: clientePortal1.id,
+      folio: 'COB-20260810-0003',
+      concepto: 'Anticipo boda 12 sep — salón y mobiliario',
+      monto: 18000,
+      estado: EstadoOrdenCobro.ANTICIPO,
+      metodoPago: 'TRANSFERENCIA',
+      referencia: 'SPEI-445566',
+      pagadoEn: new Date('2026-08-10T11:00:00'),
+      fechaVencimiento: new Date('2026-09-12T23:59:59'),
+      notas: 'Anticipo 50%; saldo pendiente antes del evento',
+    },
+  });
+
   await prisma.configPasarelaProveedor.upsert({
     where: { proveedorId: 'seed-prov-1' },
     update: { activo: true },

@@ -345,20 +345,43 @@ export function extractBodyHtml(html: string) {
   return match ? match[1].trim() : html;
 }
 
+export function sanitizeContratoFilename(nombre: string) {
+  const cleaned = nombre
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  return cleaned.slice(0, 80) || 'contrato';
+}
+
 export function wrapContratoEmailHtml(input: {
   mensaje?: string | null;
   proveedorNombre: string;
   clienteNombre?: string | null;
-  contractHtml: string;
+  adjuntoPdf?: boolean;
+  contractHtml?: string;
 }) {
-  const body = extractBodyHtml(input.contractHtml);
   const saludo = input.clienteNombre
     ? `<p style="margin:0 0 12px;color:#334155;">Hola <strong>${escapeHtml(input.clienteNombre)}</strong>,</p>`
     : '';
 
+  const introDefault = input.adjuntoPdf
+    ? `Adjuntamos el contrato de servicios de <strong>${escapeHtml(input.proveedorNombre)}</strong> en formato PDF para tu revisión y firma de conformidad.`
+    : `Adjuntamos el contrato de servicios de <strong>${escapeHtml(input.proveedorNombre)}</strong> para tu revisión y firma.`;
+
   const intro = input.mensaje?.trim()
     ? `<p style="margin:0 0 16px;color:#334155;line-height:1.6;white-space:pre-wrap;">${escapeHtml(input.mensaje.trim())}</p>`
-    : `<p style="margin:0 0 16px;color:#334155;line-height:1.6;">Adjuntamos el contrato de servicios de <strong>${escapeHtml(input.proveedorNombre)}</strong> para tu revisión y firma.</p>`;
+    : `<p style="margin:0 0 16px;color:#334155;line-height:1.6;">${introDefault}</p>`;
+
+  const cuerpoContrato =
+    !input.adjuntoPdf && input.contractHtml
+      ? `<div style="border-top:1px solid #e2e8f0;padding-top:20px;margin-top:8px;">
+      ${extractBodyHtml(input.contractHtml)}
+    </div>`
+      : input.adjuntoPdf
+        ? `<p style="margin:0;color:#64748b;line-height:1.6;font-size:14px;">Revisa el archivo PDF adjunto, fírmalo y devuélvelo al proveedor por el mismo medio acordado.</p>`
+        : '';
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -367,9 +390,7 @@ export function wrapContratoEmailHtml(input: {
   <div style="max-width:820px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;">
     ${saludo}
     ${intro}
-    <div style="border-top:1px solid #e2e8f0;padding-top:20px;margin-top:8px;">
-      ${body}
-    </div>
+    ${cuerpoContrato}
     <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">Enviado por ${escapeHtml(input.proveedorNombre)} vía EventOS — Remo&amp;Rent</p>
   </div>
 </body>

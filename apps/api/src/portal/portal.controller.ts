@@ -177,6 +177,15 @@ export class PortalController {
     return this.portalService.marcarCobroPagado(getAuthUser(req), id, referencia);
   }
 
+  @Post('cobros/:id/marcar-anticipo')
+  marcarAnticipo(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body('referencia') referencia?: string,
+  ) {
+    return this.portalService.marcarCobroAnticipo(getAuthUser(req), id, referencia);
+  }
+
   @Get('empresa')
   getPerfilEmpresa(@Req() req: Request) {
     return this.portalService.getPerfilEmpresa(getAuthUser(req));

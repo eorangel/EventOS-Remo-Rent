@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "EstadoOrdenCobro" ADD VALUE IF NOT EXISTS 'ANTICIPO';

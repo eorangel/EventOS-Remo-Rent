@@ -20,6 +20,7 @@ import { PagosModule } from './pagos/pagos.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { SuscripcionesModule } from './suscripciones/suscripciones.module';
 import { MailModule } from './mail/mail.module';
+import { PdfModule } from './pdf/pdf.module';
 import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
@@ -45,6 +46,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     DocumentosModule,
     SuscripcionesModule,
     MailModule,
+    PdfModule,
   ],
   providers: [RolesGuard],
 })

@@ -28,6 +28,7 @@ export type Usuario = {
 export type EstadoOrdenCobro =
   | 'BORRADOR'
   | 'PENDIENTE'
+  | 'ANTICIPO'
   | 'PAGADO'
   | 'VENCIDO'
   | 'CANCELADO';
