@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { WhatsAppShareButton } from '@/components/WhatsAppShareButton';
 import { Badge, Button, Card } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
 import { abrirPdfHtml, calcTotalesCotizacion, rangoFechaConsulta } from '@/lib/cotizacion-proveedor';
@@ -13,6 +14,7 @@ import {
   TIPO_SERVICIO_CONTRATO_LABELS,
   formatMoney,
 } from '@/lib/labels';
+import { buildWhatsAppMensaje } from '@/lib/whatsapp';
 import type {
   ClienteProveedor,
   ContratoEmitidoProveedor,
@@ -187,6 +189,30 @@ export function CotizacionProveedorForm({
       ),
     [lines, costoEnvio, descuentoPorcentaje, ivaPorcentaje, ivaIncluido],
   );
+
+  const clienteSeleccionado = useMemo(
+    () => clientes.find((c) => c.id === clienteProveedorId),
+    [clientes, clienteProveedorId],
+  );
+
+  const telefonoCliente =
+    clienteMode === 'new' ? nuevoCliente.telefono : clienteSeleccionado?.telefono;
+  const nombreCliente =
+    clienteMode === 'new' ? nuevoCliente.nombre : clienteSeleccionado?.nombre ?? '';
+
+  const mensajeWhatsAppCotizacion =
+    mode === 'edit' && initialData
+      ? buildWhatsAppMensaje({
+          tipo: 'cotizacion',
+          clienteNombre: nombreCliente,
+          proveedorNombre: perfil?.proveedor.nombre ?? 'Tu proveedor',
+          folio: initialData.folio,
+          total: totales.total,
+          fechaEvento,
+          lugarEntrega,
+          titulo,
+        })
+      : '';
 
   function agregarProducto() {
     const prod = productos.find((p) => p.id === productoPick);
@@ -1119,9 +1145,25 @@ export function CotizacionProveedorForm({
               <Button variant="secondary" onClick={generarPdf} disabled={generandoPdf || saving}>
                 {generandoPdf ? 'Generando...' : 'Generar PDF'}
               </Button>
+              <WhatsAppShareButton
+                telefono={telefonoCliente}
+                disabled={!mensajeWhatsAppCotizacion}
+                promptLabel="Teléfono del cliente (10 dígitos)"
+                mensaje={mensajeWhatsAppCotizacion}
+                onSent={async () => {
+                  if (estado === 'BORRADOR' && window.confirm('¿Marcar cotización como enviada?')) {
+                    await guardar(true);
+                  }
+                }}
+              />
             </>
           )}
         </div>
+        {mode === 'edit' && (
+          <p className="mt-2 text-xs text-slate-500">
+            WhatsApp: genera el PDF, envía el mensaje y adjunta el archivo en el chat.
+          </p>
+        )}
       </div>
       </div>
 
@@ -1180,6 +1222,19 @@ export function CotizacionProveedorForm({
             >
               PDF
             </Button>
+            <WhatsAppShareButton
+              className="flex-1 text-sm"
+              telefono={telefonoCliente}
+              disabled={!mensajeWhatsAppCotizacion}
+              label="WhatsApp"
+              promptLabel="Teléfono del cliente (10 dígitos)"
+              mensaje={mensajeWhatsAppCotizacion}
+              onSent={async () => {
+                if (estado === 'BORRADOR' && window.confirm('¿Marcar cotización como enviada?')) {
+                  await guardar(true);
+                }
+              }}
+            />
           </div>
         )}
       </div>

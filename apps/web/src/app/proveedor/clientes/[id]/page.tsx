@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { WhatsAppShareButton } from '@/components/WhatsAppShareButton';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
 import {
@@ -22,13 +23,16 @@ import type {
   ClienteHistorial,
   ClienteProveedor,
   EstadoEventoProveedor,
+  PerfilEmpresaResponse,
   TipoSeguimientoCliente,
 } from '@/lib/types';
+import { buildWhatsAppMensaje } from '@/lib/whatsapp';
 
 export default function ProveedorClienteDetallePage() {
   const params = useParams<{ id: string }>();
   const [cliente, setCliente] = useState<ClienteProveedor | null>(null);
   const [historial, setHistorial] = useState<ClienteHistorial | null>(null);
+  const [proveedorNombre, setProveedorNombre] = useState('Tu proveedor');
   const [tab, setTab] = useState<'seguimiento' | 'eventos' | 'cotizaciones' | 'historial'>('seguimiento');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,12 +58,14 @@ export default function ProveedorClienteDetallePage() {
 
   async function cargar() {
     if (!params.id) return;
-    const [c, h] = await Promise.all([
+    const [c, h, perfil] = await Promise.all([
       apiFetch<ClienteProveedor>(`/portal/clientes/${params.id}`),
       apiFetch<ClienteHistorial>(`/portal/clientes/${params.id}/historial`),
+      apiFetch<PerfilEmpresaResponse>('/portal/empresa').catch(() => null),
     ]);
     setCliente(c);
     setHistorial(h);
+    if (perfil?.proveedor.nombre) setProveedorNombre(perfil.proveedor.nombre);
   }
 
   useEffect(() => {
@@ -162,7 +168,18 @@ export default function ProveedorClienteDetallePage() {
                   {[cliente.email, cliente.telefono].filter(Boolean).join(' · ') || 'Sin contacto'}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 text-sm">
+              <div className="flex flex-col items-end gap-2">
+                <WhatsAppShareButton
+                  label="WhatsApp"
+                  telefono={cliente.telefono}
+                  promptLabel="Teléfono del cliente (10 dígitos)"
+                  mensaje={buildWhatsAppMensaje({
+                    tipo: 'seguimiento',
+                    clienteNombre: cliente.nombre,
+                    proveedorNombre,
+                  })}
+                />
+                <div className="flex flex-wrap justify-end gap-2 text-sm">
                 <Badge className="bg-blue-50 text-blue-800">
                   {cliente._count?.eventos ?? 0} eventos
                 </Badge>
@@ -175,6 +192,7 @@ export default function ProveedorClienteDetallePage() {
                 <Badge className="bg-amber-50 text-amber-800">
                   {cliente._count?.cobros ?? 0} cobros
                 </Badge>
+                </div>
               </div>
             </div>
           </Card>

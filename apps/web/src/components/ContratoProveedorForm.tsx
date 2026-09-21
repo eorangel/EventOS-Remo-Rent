@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ContratoPreview } from '@/components/ContratoPreview';
+import { WhatsAppShareButton } from '@/components/WhatsAppShareButton';
 import { Badge, Button, Card } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
 import {
@@ -18,6 +19,7 @@ import {
   ESTADO_PLANTILLA_CONTRATO_LABELS,
   TIPO_SERVICIO_CONTRATO_LABELS,
 } from '@/lib/labels';
+import { buildWhatsAppMensaje } from '@/lib/whatsapp';
 import type {
   ContratoEmitidoProveedor,
   ContratoPdfResponse,
@@ -792,9 +794,10 @@ export function ContratoProveedorForm({
       </div>
 
       <Card>
-        <h2 className="mb-1 text-lg font-semibold text-slate-900">Enviar por correo</h2>
+        <h2 className="mb-1 text-lg font-semibold text-slate-900">Enviar al cliente</h2>
         <p className="mb-5 text-sm text-slate-600">
-          El contrato se envía al cliente como PDF adjunto para revisión y firma de conformidad.
+          Por correo se envía el PDF adjunto. Por WhatsApp se abre un mensaje prellenado: genera el
+          PDF, envía el mensaje y adjunta el archivo en el chat.
         </p>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -827,7 +830,7 @@ export function ContratoProveedorForm({
             />
           </label>
 
-          <div className="lg:col-span-2">
+          <div className="flex flex-wrap gap-3 lg:col-span-2">
             <Button
               type="button"
               onClick={() => void enviarEmail()}
@@ -835,6 +838,18 @@ export function ContratoProveedorForm({
             >
               {enviandoEmail ? 'Enviando...' : 'Enviar contrato por email'}
             </Button>
+            <WhatsAppShareButton
+              telefono={pdfVars.clienteTelefono}
+              promptLabel="Teléfono del cliente (10 dígitos)"
+              mensaje={buildWhatsAppMensaje({
+                tipo: 'contrato',
+                clienteNombre: pdfVars.clienteNombre,
+                proveedorNombre: perfilEmpresa?.proveedor.nombre ?? 'Tu proveedor',
+                contratoNombre: nombre.trim() || 'Contrato de servicios',
+                fechaEvento: pdfVars.fechaEvento,
+                montoTotal: pdfVars.montoTotal,
+              })}
+            />
           </div>
         </div>
       </Card>

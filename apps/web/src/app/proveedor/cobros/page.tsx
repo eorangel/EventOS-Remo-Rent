@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { WhatsAppShareButton } from '@/components/WhatsAppShareButton';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { apiFetch } from '@/lib/api';
 import {
@@ -10,7 +11,8 @@ import {
   formatFechaCorta,
   formatMoney,
 } from '@/lib/labels';
-import type { ClienteProveedor, EstadoOrdenCobro, OrdenCobro } from '@/lib/types';
+import type { ClienteProveedor, EstadoOrdenCobro, OrdenCobro, PerfilEmpresaResponse } from '@/lib/types';
+import { buildWhatsAppMensaje, getPublicAppUrl } from '@/lib/whatsapp';
 
 const ESTADOS_COBRO: EstadoOrdenCobro[] = [
   'BORRADOR',
@@ -29,6 +31,7 @@ export default function ProveedorCobrosPage() {
 
   const [cobros, setCobros] = useState<OrdenCobro[]>([]);
   const [clientes, setClientes] = useState<ClienteProveedor[]>([]);
+  const [proveedorNombre, setProveedorNombre] = useState('Tu proveedor');
   const [filtroEstado, setFiltroEstado] = useState<EstadoOrdenCobro | ''>('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,17 +46,23 @@ export default function ProveedorCobrosPage() {
 
   async function cargar() {
     const params = filtroEstado ? `?estado=${filtroEstado}` : '';
-    const [cobrosData, clientesData] = await Promise.all([
+    const [cobrosData, clientesData, perfilData] = await Promise.all([
       apiFetch<OrdenCobro[]>(`/portal/cobros${params}`),
       apiFetch<ClienteProveedor[]>('/portal/clientes'),
+      apiFetch<PerfilEmpresaResponse>('/portal/empresa').catch(() => null),
     ]);
     setCobros(cobrosData);
     setClientes(clientesData.filter((c) => c.activo));
+    if (perfilData?.proveedor.nombre) setProveedorNombre(perfilData.proveedor.nombre);
   }
 
   useEffect(() => {
     cargar().finally(() => setLoading(false));
   }, [filtroEstado]);
+
+  function linkPagoCobro(cobro: OrdenCobro) {
+    return cobro.linkPublico ?? (cobro.tokenPago ? `${getPublicAppUrl()}/pagar/${cobro.tokenPago}` : null);
+  }
 
   useEffect(() => {
     if (!cobroDestacadoId || loading) return;
@@ -327,6 +336,25 @@ export default function ProveedorCobrosPage() {
                           >
                             Marcar pagado
                           </Button>
+                        )}
+                        {['PENDIENTE', 'ANTICIPO', 'VENCIDO'].includes(cobro.estado) && (
+                          <WhatsAppShareButton
+                            label="Recordar por WhatsApp"
+                            className="text-xs"
+                            telefono={cobro.clienteProveedor?.telefono}
+                            promptLabel="Teléfono del cliente (10 dígitos)"
+                            mensaje={buildWhatsAppMensaje({
+                              tipo: 'cobro',
+                              clienteNombre: cobro.clienteProveedor?.nombre ?? 'Cliente',
+                              proveedorNombre,
+                              folio: cobro.folio,
+                              concepto: cobro.concepto,
+                              monto: cobro.monto,
+                              estado: cobro.estado as 'PENDIENTE' | 'ANTICIPO' | 'VENCIDO',
+                              fechaVencimiento: cobro.fechaVencimiento,
+                              linkPago: linkPagoCobro(cobro),
+                            })}
+                          />
                         )}
                       </div>
                     </div>
