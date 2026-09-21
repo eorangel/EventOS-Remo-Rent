@@ -57,6 +57,7 @@ import {
   SubirArchivoContratoDto,
   UpdatePlantillaContratoDto,
 } from './dto/contrato-proveedor.dto';
+import { BriefingService } from './briefing.service';
 import { PortalService } from './portal.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -65,6 +66,7 @@ import { PortalService } from './portal.service';
 export class PortalController {
   constructor(
     private portalService: PortalService,
+    private briefingService: BriefingService,
     private catalogoService: CatalogoProveedorService,
     private banqueteService: CatalogoBanqueteService,
   ) {}
@@ -321,6 +323,21 @@ export class PortalController {
   agenda(@Req() req: Request, @Query('fecha') fecha: string) {
     const day = fecha ?? new Date().toISOString().slice(0, 10);
     return this.portalService.getAgenda(getAuthUser(req), day);
+  }
+
+  @Get('briefing/hoy')
+  briefingHoy(@Req() req: Request, @Query('fecha') fecha?: string) {
+    return this.briefingService.previewBriefing(getAuthUser(req), fecha);
+  }
+
+  @Post('briefing/enviar')
+  briefingEnviar(@Req() req: Request, @Body('fecha') fecha?: string) {
+    return this.briefingService.enviarBriefingAhora(getAuthUser(req), fecha);
+  }
+
+  @Get('briefing/whatsapp')
+  briefingWhatsApp(@Req() req: Request, @Query('fecha') fecha?: string) {
+    return this.briefingService.getWhatsAppMensaje(getAuthUser(req), fecha);
   }
 
   @Get('eventos')

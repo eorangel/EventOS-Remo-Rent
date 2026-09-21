@@ -124,4 +124,12 @@ export class UpdatePerfilEmpresaDto {
   @IsOptional()
   @IsString()
   moneda?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  briefingActivo?: boolean;
+
+  @IsOptional()
+  @IsString()
+  briefingHora?: string;
 }

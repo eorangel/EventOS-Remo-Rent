@@ -679,6 +679,10 @@ model PerfilEmpresaProveedor {
   condicionesCancelacion String?  @db.Text
   ivaIncluido            Boolean  @default(false)
   moneda                 String   @default("MXN")
+  briefingActivo         Boolean  @default(true)
+  briefingHora           String   @default("07:00")
+  briefingEmail          String?
+  briefingUltimoEnvio    DateTime?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

@@ -318,7 +318,29 @@ export type PerfilEmpresaData = {
   condicionesCancelacion: string | null;
   ivaIncluido: boolean;
   moneda: string;
+  briefingActivo: boolean;
+  briefingHora: string;
+  briefingEmail: string | null;
+  briefingUltimoEnvio: string | null;
   updatedAt: string | null;
+};
+
+export type BriefingPreview = {
+  fecha: string;
+  fechaLabel: string;
+  empresaNombre: string;
+  destinatarioNombre: string;
+  resumen: AgendaPortal['resumen'];
+  cobrosVencidos: AgendaItem[];
+  secciones: AgendaSeccion;
+  texto: string;
+  html: string;
+  subject: string;
+  vacio: boolean;
+  briefingActivo: boolean;
+  briefingHora: string;
+  briefingEmail: string;
+  briefingUltimoEnvio: string | null;
 };
 
 export type PerfilEmpresaResponse = {

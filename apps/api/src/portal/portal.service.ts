@@ -1210,6 +1210,10 @@ export class PortalService {
 
   async getAgenda(user: AuthUser, fecha: string) {
     const proveedorId = requireProveedorUser(user);
+    return this.buildAgendaForProveedor(proveedorId, fecha);
+  }
+
+  async buildAgendaForProveedor(proveedorId: string, fecha: string) {
     const day = fecha.slice(0, 10);
     const { inicio, fin } = rangoConsultaUTC(day);
     const hoyKey = new Date().toISOString().slice(0, 10);
@@ -1562,6 +1566,8 @@ export class PortalService {
       condicionesCancelacion,
       ivaIncluido,
       moneda,
+      briefingActivo,
+      briefingHora,
       nombre,
       razonSocial,
       rfc,
@@ -1572,6 +1578,9 @@ export class PortalService {
       ciudad,
       entidadFederativa,
     } = dto;
+
+    const briefingEmail =
+      briefingActivo !== undefined || briefingHora !== undefined ? user.email : undefined;
 
     await this.prisma.proveedor.update({
       where: { id: proveedorId },
@@ -1601,6 +1610,9 @@ export class PortalService {
         condicionesCancelacion,
         ivaIncluido: ivaIncluido ?? false,
         moneda: moneda ?? 'MXN',
+        briefingActivo: briefingActivo ?? true,
+        briefingHora: briefingHora ?? '07:00',
+        briefingEmail,
       },
       update: {
         ...(logoUrl !== undefined ? { logoUrl } : {}),
@@ -1612,6 +1624,9 @@ export class PortalService {
         ...(condicionesCancelacion !== undefined ? { condicionesCancelacion } : {}),
         ...(ivaIncluido !== undefined ? { ivaIncluido } : {}),
         ...(moneda !== undefined ? { moneda } : {}),
+        ...(briefingActivo !== undefined ? { briefingActivo } : {}),
+        ...(briefingHora !== undefined ? { briefingHora } : {}),
+        ...(briefingEmail !== undefined ? { briefingEmail } : {}),
       },
     });
 
@@ -1678,6 +1693,10 @@ export class PortalService {
         condicionesCancelacion: perfil?.condicionesCancelacion ?? null,
         ivaIncluido: perfil?.ivaIncluido ?? false,
         moneda: perfil?.moneda ?? 'MXN',
+        briefingActivo: perfil?.briefingActivo ?? true,
+        briefingHora: perfil?.briefingHora ?? '07:00',
+        briefingEmail: perfil?.briefingEmail ?? null,
+        briefingUltimoEnvio: perfil?.briefingUltimoEnvio?.toISOString() ?? null,
         updatedAt: perfil?.updatedAt ?? null,
       },
       completitudPerfilEmpresa: completitud,

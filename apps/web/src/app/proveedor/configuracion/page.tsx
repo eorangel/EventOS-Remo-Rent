@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
-import { apiFetch } from '@/lib/api';
+import { WhatsAppShareButton } from '@/components/WhatsAppShareButton';
+import { apiFetch, getStoredUser } from '@/lib/api';
 import { ENTIDADES_FEDERATIVAS } from '@/lib/labels';
-import type { HorarioDia, PerfilEmpresaResponse, RedesSocialesEmpresa } from '@/lib/types';
+import type {
+  BriefingPreview,
+  HorarioDia,
+  PerfilEmpresaResponse,
+  RedesSocialesEmpresa,
+  Usuario,
+} from '@/lib/types';
 
 const MONEDAS = ['MXN', 'USD'] as const;
 
@@ -13,6 +20,13 @@ export default function ProveedorConfiguracionPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [briefingPreview, setBriefingPreview] = useState<BriefingPreview | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+  const [briefingEnviando, setBriefingEnviando] = useState(false);
+  const [briefingMensaje, setBriefingMensaje] = useState('');
+  const [usuario] = useState<Usuario | null>(() =>
+    typeof window !== 'undefined' ? getStoredUser<Usuario>() : null,
+  );
 
   const [form, setForm] = useState({
     nombre: '',
@@ -31,6 +45,8 @@ export default function ProveedorConfiguracionPage() {
     condicionesCancelacion: '',
     ivaIncluido: false,
     moneda: 'MXN',
+    briefingActivo: true,
+    briefingHora: '07:00',
     horario: [] as HorarioDia[],
     redesSociales: {} as RedesSocialesEmpresa,
   });
@@ -55,13 +71,45 @@ export default function ProveedorConfiguracionPage() {
       condicionesCancelacion: res.perfil.condicionesCancelacion ?? '',
       ivaIncluido: res.perfil.ivaIncluido,
       moneda: res.perfil.moneda,
+      briefingActivo: res.perfil.briefingActivo ?? true,
+      briefingHora: res.perfil.briefingHora ?? '07:00',
       horario: res.perfil.horario?.dias ?? [],
       redesSociales: res.perfil.redesSociales ?? {},
     });
   }
 
+  async function cargarBriefingPreview() {
+    setBriefingLoading(true);
+    setBriefingMensaje('');
+    try {
+      const preview = await apiFetch<BriefingPreview>('/portal/briefing/hoy');
+      setBriefingPreview(preview);
+    } catch (err) {
+      setBriefingMensaje(err instanceof Error ? err.message : 'No se pudo cargar la vista previa');
+    } finally {
+      setBriefingLoading(false);
+    }
+  }
+
+  async function enviarBriefingAhora() {
+    setBriefingEnviando(true);
+    setBriefingMensaje('');
+    try {
+      const res = await apiFetch<{ enviadoA: string }>('/portal/briefing/enviar', { method: 'POST' });
+      setBriefingMensaje(`Briefing enviado a ${res.enviadoA}`);
+      await cargarBriefingPreview();
+      await cargar();
+    } catch (err) {
+      setBriefingMensaje(err instanceof Error ? err.message : 'Error al enviar');
+    } finally {
+      setBriefingEnviando(false);
+    }
+  }
+
   useEffect(() => {
-    cargar().finally(() => setLoading(false));
+    cargar()
+      .then(() => cargarBriefingPreview())
+      .finally(() => setLoading(false));
   }, []);
 
   function updateHorario(index: number, field: keyof HorarioDia, value: string | boolean) {
@@ -308,6 +356,125 @@ export default function ProveedorConfiguracionPage() {
                     </label>
                   </div>
                 ))}
+              </div>
+            </Card>
+
+            <Card className="lg:col-span-2">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Resumen matutino</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Recibe por correo un resumen diario de entregas, eventos, cobros y seguimientos.
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.briefingActivo}
+                    onChange={(e) => setForm({ ...form, briefingActivo: e.target.checked })}
+                  />
+                  Envío automático activo
+                </label>
+              </div>
+
+              <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">Hora de envío</label>
+                  <input
+                    type="time"
+                    value={form.briefingHora}
+                    onChange={(e) => setForm({ ...form, briefingHora: e.target.value })}
+                    className="w-full text-sm"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">Zona horaria: Ciudad de México</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Correo destinatario
+                  </label>
+                  <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    {usuario?.email ?? data?.perfil.briefingEmail ?? 'Tu correo de sesión'}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Se usa el correo del usuario que guarda esta configuración.
+                  </p>
+                </div>
+              </div>
+
+              {briefingPreview && (
+                <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-slate-800">Vista previa de hoy</span>
+                    <Badge className="bg-slate-200 text-slate-700">{briefingPreview.fechaLabel}</Badge>
+                    {briefingPreview.vacio && (
+                      <Badge className="bg-slate-200 text-slate-600">Sin actividades</Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+                    <span>{briefingPreview.resumen.entregas} entregas</span>
+                    <span>·</span>
+                    <span>{briefingPreview.resumen.recogidas} recogidas</span>
+                    <span>·</span>
+                    <span>{briefingPreview.resumen.eventos} eventos</span>
+                    <span>·</span>
+                    <span>{briefingPreview.resumen.cobros} cobros hoy</span>
+                    <span>·</span>
+                    <span>{briefingPreview.resumen.seguimientos} seguimientos</span>
+                    {briefingPreview.cobrosVencidos.length > 0 && (
+                      <>
+                        <span>·</span>
+                        <span className="text-amber-700">
+                          {briefingPreview.cobrosVencidos.length} vencidos
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-white p-3 text-xs text-slate-700">
+                    {briefingPreview.texto}
+                  </pre>
+                  {data?.perfil.briefingUltimoEnvio && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Último envío:{' '}
+                      {new Intl.DateTimeFormat('es-MX', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      }).format(new Date(data.perfil.briefingUltimoEnvio))}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={briefingLoading}
+                  onClick={() => void cargarBriefingPreview()}
+                >
+                  {briefingLoading ? 'Actualizando...' : 'Actualizar vista previa'}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={briefingEnviando}
+                  onClick={() => void enviarBriefingAhora()}
+                >
+                  {briefingEnviando ? 'Enviando...' : 'Enviar ahora por correo'}
+                </Button>
+                {briefingPreview && (
+                  <WhatsAppShareButton
+                    telefono={form.telefono || form.redesSociales.whatsapp}
+                    mensaje={briefingPreview.texto}
+                    label="Compartir en WhatsApp"
+                    promptLabel="Tu WhatsApp (10 dígitos)"
+                  />
+                )}
+                {briefingMensaje && (
+                  <p
+                    className={`text-sm ${briefingMensaje.includes('Error') || briefingMensaje.includes('No se') ? 'text-red-600' : 'text-emerald-700'}`}
+                  >
+                    {briefingMensaje}
+                  </p>
+                )}
               </div>
             </Card>
 
