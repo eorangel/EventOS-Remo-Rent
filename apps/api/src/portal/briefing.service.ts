@@ -38,22 +38,20 @@ export class BriefingService {
     const proveedorId = requireProveedorUser(user);
     const day = fecha?.slice(0, 10) ?? hoyEnMexico();
     const content = await this.buildForProveedor(proveedorId, day, user.nombre);
-    const perfil = await this.prisma.perfilEmpresaProveedor.findUnique({
-      where: { proveedorId },
-    });
+    const { perfil, emailDestino } = await this.resolveBriefingDestino(proveedorId);
     return {
       ...content,
       briefingActivo: perfil?.briefingActivo ?? true,
       briefingHora: perfil?.briefingHora ?? '07:00',
-      briefingEmail: perfil?.briefingEmail ?? user.email,
+      briefingEmail: emailDestino,
       briefingUltimoEnvio: perfil?.briefingUltimoEnvio?.toISOString() ?? null,
     };
   }
 
   async enviarBriefingAhora(user: AuthUser, fecha?: string) {
     const proveedorId = requireProveedorUser(user);
-    const to = user.email?.trim();
-    if (!to) throw new BadRequestException('Tu usuario no tiene correo configurado');
+    const { emailDestino } = await this.resolveBriefingDestino(proveedorId);
+    const to = emailDestino;
 
     const day = fecha?.slice(0, 10) ?? hoyEnMexico();
     const content = await this.buildForProveedor(proveedorId, day, user.nombre);
@@ -63,11 +61,9 @@ export class BriefingService {
       where: { proveedorId },
       create: {
         proveedorId,
-        briefingEmail: to,
         briefingUltimoEnvio: new Date(),
       },
       update: {
-        briefingEmail: to,
         briefingUltimoEnvio: new Date(),
       },
     });
@@ -94,7 +90,6 @@ export class BriefingService {
     const perfiles = await this.prisma.perfilEmpresaProveedor.findMany({
       where: {
         briefingActivo: true,
-        briefingEmail: { not: null },
         briefingHora: hora,
       },
       include: { proveedor: true },
@@ -102,7 +97,8 @@ export class BriefingService {
 
     let enviados = 0;
     for (const perfil of perfiles) {
-      const email = perfil.briefingEmail?.trim();
+      const email =
+        perfil.briefingEmail?.trim() || perfil.proveedor.email?.trim() || '';
       if (!email) continue;
 
       const yaEnviadoHoy =
@@ -138,6 +134,24 @@ export class BriefingService {
     }
 
     return { hora, fecha, enviados, candidatos: perfiles.length };
+  }
+
+  private async resolveBriefingDestino(proveedorId: string) {
+    const proveedor = await this.prisma.proveedor.findUnique({
+      where: { id: proveedorId },
+      include: { perfilEmpresa: true },
+    });
+    if (!proveedor) throw new BadRequestException('Proveedor no encontrado');
+
+    const emailDestino =
+      proveedor.perfilEmpresa?.briefingEmail?.trim() || proveedor.email?.trim() || '';
+    if (!emailDestino) {
+      throw new BadRequestException(
+        'Configura un correo destinatario en Resumen matutino o en Correo de contacto (Identidad)',
+      );
+    }
+
+    return { perfil: proveedor.perfilEmpresa, emailDestino };
   }
 
   private async buildForProveedor(

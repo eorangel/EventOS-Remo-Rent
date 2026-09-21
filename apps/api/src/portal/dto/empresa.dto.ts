@@ -132,4 +132,8 @@ export class UpdatePerfilEmpresaDto {
   @IsOptional()
   @IsString()
   briefingHora?: string;
+
+  @IsOptional()
+  @IsEmail()
+  briefingEmail?: string;
 }

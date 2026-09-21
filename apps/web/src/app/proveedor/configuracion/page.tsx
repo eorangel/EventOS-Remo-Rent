@@ -3,14 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Badge, Button, Card, PageHeader } from '@/components/ui';
 import { WhatsAppShareButton } from '@/components/WhatsAppShareButton';
-import { apiFetch, getStoredUser } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 import { ENTIDADES_FEDERATIVAS } from '@/lib/labels';
 import type {
   BriefingPreview,
   HorarioDia,
   PerfilEmpresaResponse,
   RedesSocialesEmpresa,
-  Usuario,
 } from '@/lib/types';
 
 const MONEDAS = ['MXN', 'USD'] as const;
@@ -24,9 +23,6 @@ export default function ProveedorConfiguracionPage() {
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [briefingEnviando, setBriefingEnviando] = useState(false);
   const [briefingMensaje, setBriefingMensaje] = useState('');
-  const [usuario] = useState<Usuario | null>(() =>
-    typeof window !== 'undefined' ? getStoredUser<Usuario>() : null,
-  );
 
   const [form, setForm] = useState({
     nombre: '',
@@ -47,6 +43,7 @@ export default function ProveedorConfiguracionPage() {
     moneda: 'MXN',
     briefingActivo: true,
     briefingHora: '07:00',
+    briefingEmail: '',
     horario: [] as HorarioDia[],
     redesSociales: {} as RedesSocialesEmpresa,
   });
@@ -73,6 +70,7 @@ export default function ProveedorConfiguracionPage() {
       moneda: res.perfil.moneda,
       briefingActivo: res.perfil.briefingActivo ?? true,
       briefingHora: res.perfil.briefingHora ?? '07:00',
+      briefingEmail: res.perfil.briefingEmail?.trim() || res.proveedor.email?.trim() || '',
       horario: res.perfil.horario?.dias ?? [],
       redesSociales: res.perfil.redesSociales ?? {},
     });
@@ -392,12 +390,26 @@ export default function ProveedorConfiguracionPage() {
                   <label className="mb-1 block text-xs font-medium text-slate-600">
                     Correo destinatario
                   </label>
-                  <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    {usuario?.email ?? data?.perfil.briefingEmail ?? 'Tu correo de sesión'}
-                  </p>
+                  <input
+                    type="email"
+                    placeholder="Correo de contacto (Identidad)"
+                    value={form.briefingEmail}
+                    onChange={(e) => setForm({ ...form, briefingEmail: e.target.value })}
+                    className="w-full text-sm"
+                  />
                   <p className="mt-1 text-xs text-slate-500">
-                    Se usa el correo del usuario que guarda esta configuración.
+                    Por defecto usa el correo de Identidad. Puedes cambiarlo si prefieres otro
+                    destinatario.
                   </p>
+                  {form.email.trim() && form.briefingEmail.trim() !== form.email.trim() && (
+                    <button
+                      type="button"
+                      className="mt-1 text-xs text-teal-700 underline"
+                      onClick={() => setForm({ ...form, briefingEmail: form.email.trim() })}
+                    >
+                      Usar correo de Identidad ({form.email.trim()})
+                    </button>
+                  )}
                 </div>
               </div>
 

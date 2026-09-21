@@ -1568,6 +1568,7 @@ export class PortalService {
       moneda,
       briefingActivo,
       briefingHora,
+      briefingEmail,
       nombre,
       razonSocial,
       rfc,
@@ -1579,8 +1580,10 @@ export class PortalService {
       entidadFederativa,
     } = dto;
 
-    const briefingEmail =
-      briefingActivo !== undefined || briefingHora !== undefined ? user.email : undefined;
+    const briefingEmailDestino =
+      briefingEmail !== undefined
+        ? briefingEmail.trim() || email?.trim() || undefined
+        : undefined;
 
     await this.prisma.proveedor.update({
       where: { id: proveedorId },
@@ -1612,7 +1615,7 @@ export class PortalService {
         moneda: moneda ?? 'MXN',
         briefingActivo: briefingActivo ?? true,
         briefingHora: briefingHora ?? '07:00',
-        briefingEmail,
+        briefingEmail: briefingEmailDestino ?? email?.trim(),
       },
       update: {
         ...(logoUrl !== undefined ? { logoUrl } : {}),
@@ -1626,7 +1629,7 @@ export class PortalService {
         ...(moneda !== undefined ? { moneda } : {}),
         ...(briefingActivo !== undefined ? { briefingActivo } : {}),
         ...(briefingHora !== undefined ? { briefingHora } : {}),
-        ...(briefingEmail !== undefined ? { briefingEmail } : {}),
+        ...(briefingEmailDestino !== undefined ? { briefingEmail: briefingEmailDestino } : {}),
       },
     });
 
