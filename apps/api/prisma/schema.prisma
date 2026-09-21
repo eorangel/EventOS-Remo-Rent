@@ -689,6 +689,7 @@ model CotizacionProveedor {
   id                  String           @id @default(cuid())
   proveedorId         String
   clienteProveedorId  String
+  tokenPublico        String           @unique @default(cuid())
   folio               String
   titulo              String?
   estado              EstadoCotizacion @default(BORRADOR)

@@ -14,7 +14,7 @@ import {
   TIPO_SERVICIO_CONTRATO_LABELS,
   formatMoney,
 } from '@/lib/labels';
-import { buildWhatsAppMensaje } from '@/lib/whatsapp';
+import { buildCotizacionPublicUrl, buildWhatsAppMensaje } from '@/lib/whatsapp';
 import type {
   ClienteProveedor,
   ContratoEmitidoProveedor,
@@ -200,6 +200,12 @@ export function CotizacionProveedorForm({
   const nombreCliente =
     clienteMode === 'new' ? nuevoCliente.nombre : clienteSeleccionado?.nombre ?? '';
 
+  const linkPublicoCotizacion =
+    mode === 'edit' && initialData && initialData.estado !== 'BORRADOR'
+      ? initialData.linkPublico ??
+        (initialData.tokenPublico ? buildCotizacionPublicUrl(initialData.tokenPublico) : undefined)
+      : undefined;
+
   const mensajeWhatsAppCotizacion =
     mode === 'edit' && initialData
       ? buildWhatsAppMensaje({
@@ -211,6 +217,7 @@ export function CotizacionProveedorForm({
           fechaEvento,
           lugarEntrega,
           titulo,
+          linkPublico: linkPublicoCotizacion,
         })
       : '';
 
@@ -1161,7 +1168,8 @@ export function CotizacionProveedorForm({
         </div>
         {mode === 'edit' && (
           <p className="mt-2 text-xs text-slate-500">
-            WhatsApp: genera el PDF, envía el mensaje y adjunta el archivo en el chat.
+            WhatsApp incluye un enlace para que el cliente vea la cotización en línea
+            {estado === 'BORRADOR' ? ' (marca como enviada para activar el link)' : ''}.
           </p>
         )}
       </div>

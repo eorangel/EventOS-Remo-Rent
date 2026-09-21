@@ -210,6 +210,8 @@ export type CotizacionProveedor = {
   total: number;
   notas?: string | null;
   validoHasta?: string | null;
+  tokenPublico?: string;
+  linkPublico?: string;
   createdAt: string;
   updatedAt: string;
   clienteProveedor?: ClienteProveedor;
@@ -218,10 +220,19 @@ export type CotizacionProveedor = {
   ordenCobroId?: string;
 };
 
+export type CotizacionPublicaResponse = {
+  folio: string;
+  titulo: string;
+  proveedorNombre: string;
+  estado: EstadoCotizacion;
+  html: string;
+};
+
 export type CotizacionPdfResponse = {
   folio: string;
   titulo: string;
   html: string;
+  linkPublico?: string;
 };
 
 export type ContratoPdfResponse = {

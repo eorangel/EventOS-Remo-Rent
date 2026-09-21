@@ -2114,27 +2114,98 @@ export class PortalService {
     const proveedorId = requireProveedorUser(user);
     const cotizacion = await this.prisma.cotizacionProveedor.findFirst({
       where: { id, proveedorId },
-      include: {
-        clienteProveedor: true,
-        items: {
-          orderBy: { id: 'asc' },
-          include: {
-            productoProveedor: {
-              include: { fotos: { orderBy: { orden: 'asc' } } },
-            },
-            menuBanquete: {
-              include: { platillos: { orderBy: { orden: 'asc' } } },
-            },
-            servicioProveedor: { select: { id: true, nombre: true } },
-          },
-        },
-        proveedor: { include: { perfilEmpresa: true } },
-      },
+      include: this.cotizacionPdfInclude(),
     });
     if (!cotizacion) throw new NotFoundException('Cotización no encontrada');
 
+    const html = this.buildCotizacionHtmlFromRow(cotizacion);
+
+    return {
+      folio: cotizacion.folio,
+      titulo: cotizacion.titulo ?? cotizacion.folio,
+      html,
+      linkPublico: this.cotizacionLinkPublico(cotizacion.tokenPublico),
+    };
+  }
+
+  async getCotizacionPublica(tokenPublico: string) {
+    const cotizacion = await this.prisma.cotizacionProveedor.findFirst({
+      where: { tokenPublico },
+      include: this.cotizacionPdfInclude(),
+    });
+    if (!cotizacion) throw new NotFoundException('Cotización no encontrada');
+    if (cotizacion.estado === EstadoCotizacion.BORRADOR) {
+      throw new NotFoundException('Esta cotización aún no está disponible para consulta');
+    }
+
+    return {
+      folio: cotizacion.folio,
+      titulo: cotizacion.titulo ?? cotizacion.folio,
+      proveedorNombre: cotizacion.proveedor.nombre,
+      estado: cotizacion.estado,
+      html: this.buildCotizacionHtmlFromRow(cotizacion),
+    };
+  }
+
+  private cotizacionPdfInclude() {
+    return {
+      clienteProveedor: true,
+      items: {
+        orderBy: { id: 'asc' as const },
+        include: {
+          productoProveedor: {
+            include: { fotos: { orderBy: { orden: 'asc' as const } } },
+          },
+          menuBanquete: {
+            include: { platillos: { orderBy: { orden: 'asc' as const } } },
+          },
+          servicioProveedor: { select: { id: true, nombre: true } },
+        },
+      },
+      proveedor: { include: { perfilEmpresa: true } },
+    };
+  }
+
+  private buildCotizacionHtmlFromRow(
+    cotizacion: {
+      folio: string;
+      titulo: string | null;
+      fechaEvento: Date | null;
+      lugarEntrega: string | null;
+      validoHasta: Date | null;
+      notas: string | null;
+      ivaIncluido: boolean;
+      ivaPorcentaje: unknown;
+      costoEnvio: unknown;
+      descuentoPorcentaje: unknown;
+      descuentoMonto: unknown;
+      subtotal: unknown;
+      montoIva: unknown;
+      total: unknown;
+      clienteProveedor: {
+        nombre: string;
+        empresa?: string | null;
+        email?: string | null;
+        telefono?: string | null;
+      };
+      proveedor: {
+        nombre: string;
+        contacto: string | null;
+        email: string | null;
+        telefono: string | null;
+        sitioWeb: string | null;
+        perfilEmpresa: {
+          moneda: string | null;
+          logoUrl: string | null;
+          politicasRenta: string | null;
+          condicionesCancelacion: string | null;
+        } | null;
+      };
+      items: Array<Parameters<typeof mapCotizacionItemParaPdf>[0]>;
+    },
+  ) {
     const moneda = cotizacion.proveedor.perfilEmpresa?.moneda ?? 'MXN';
-    const html = buildCotizacionProveedorHtml({
+    return buildCotizacionProveedorHtml({
       folio: cotizacion.folio,
       titulo: cotizacion.titulo,
       fechaEvento: cotizacion.fechaEvento,
@@ -2143,13 +2214,13 @@ export class PortalService {
       notas: cotizacion.notas,
       moneda,
       ivaIncluido: cotizacion.ivaIncluido,
-      ivaPorcentaje: toNumber(cotizacion.ivaPorcentaje),
-      costoEnvio: toNumber(cotizacion.costoEnvio),
-      descuentoPorcentaje: toNumber(cotizacion.descuentoPorcentaje),
-      descuentoMonto: toNumber(cotizacion.descuentoMonto),
-      subtotal: toNumber(cotizacion.subtotal),
-      montoIva: toNumber(cotizacion.montoIva),
-      total: toNumber(cotizacion.total),
+      ivaPorcentaje: toNumber(cotizacion.ivaPorcentaje as never),
+      costoEnvio: toNumber(cotizacion.costoEnvio as never),
+      descuentoPorcentaje: toNumber(cotizacion.descuentoPorcentaje as never),
+      descuentoMonto: toNumber(cotizacion.descuentoMonto as never),
+      subtotal: toNumber(cotizacion.subtotal as never),
+      montoIva: toNumber(cotizacion.montoIva as never),
+      total: toNumber(cotizacion.total as never),
       proveedor: {
         nombre: cotizacion.proveedor.nombre,
         contacto: cotizacion.proveedor.contacto,
@@ -2167,12 +2238,12 @@ export class PortalService {
       cliente: cotizacion.clienteProveedor,
       items: cotizacion.items.map((i) => mapCotizacionItemParaPdf(i)),
     });
+  }
 
-    return {
-      folio: cotizacion.folio,
-      titulo: cotizacion.titulo ?? cotizacion.folio,
-      html,
-    };
+  private cotizacionLinkPublico(tokenPublico: string) {
+    const webBase =
+      process.env.WEB_PUBLIC_URL?.trim().replace(/\/$/, '') || 'http://localhost:3000';
+    return `${webBase}/cotizacion/${tokenPublico}`;
   }
 
   private async validarInventarioCotizacion(
@@ -2358,6 +2429,7 @@ export class PortalService {
 
   private mapCotizacion<
     T extends {
+      tokenPublico?: string;
       costoEnvio: unknown;
       descuentoPorcentaje: unknown;
       descuentoMonto: unknown;
@@ -2380,6 +2452,7 @@ export class PortalService {
       subtotal: toNumber(row.subtotal as never),
       montoIva: toNumber(row.montoIva as never),
       total: toNumber(row.total as never),
+      linkPublico: row.tokenPublico ? this.cotizacionLinkPublico(row.tokenPublico) : undefined,
       items: row.items?.map((i) => ({
         ...i,
         precioUnitario: toNumber(i.precioUnitario as never),

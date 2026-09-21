@@ -9,6 +9,7 @@ export type WhatsAppMensajeCotizacion = {
   fechaEvento?: string | null;
   lugarEntrega?: string | null;
   titulo?: string | null;
+  linkPublico?: string | null;
 };
 
 export type WhatsAppMensajeContrato = {
@@ -49,6 +50,10 @@ export function getPublicAppUrl() {
     return window.location.origin;
   }
   return process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '') || 'https://app.remoconecta.com';
+}
+
+export function buildCotizacionPublicUrl(tokenPublico: string) {
+  return `${getPublicAppUrl()}/cotizacion/${tokenPublico}`;
 }
 
 export function normalizePhoneMx(raw: string): string | null {
@@ -97,10 +102,13 @@ export function buildWhatsAppMensaje(input: WhatsAppMensajeInput): string {
     if (fecha) lineas.push(`• Fecha: ${fecha}`);
     if (input.lugarEntrega?.trim()) lineas.push(`• Lugar: ${input.lugarEntrega.trim()}`);
     lineas.push(`• Total: ${formatMoney(input.total)}`);
+    lineas.push('');
+    if (input.linkPublico?.trim()) {
+      lineas.push(`Ver cotización completa: ${input.linkPublico.trim()}`);
+      lineas.push('');
+    }
     lineas.push(
-      '',
       'Revisa el detalle y confírmame si deseas apartar la fecha.',
-      'Te envío el PDF en el siguiente mensaje.',
       '',
       `— ${input.proveedorNombre}`,
     );
