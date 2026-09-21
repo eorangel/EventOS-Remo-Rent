@@ -1,4 +1,30 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const PRODUCTION_API_BY_HOST: Record<string, string> = {
+  'app.remoconecta.com': 'https://api.remoconecta.com',
+};
+
+const RAILWAY_API_FALLBACK = 'https://api-production-af34e.up.railway.app';
+
+function getApiUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+  if (fromEnv) return fromEnv;
+
+  if (typeof window !== 'undefined') {
+    const mapped = PRODUCTION_API_BY_HOST[window.location.hostname];
+    if (mapped) return mapped;
+    if (window.location.hostname.endsWith('.up.railway.app')) {
+      return RAILWAY_API_FALLBACK;
+    }
+  }
+
+  return 'http://localhost:3001';
+}
+
+function connectionErrorMessage() {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return 'No se pudo conectar con el servidor. Intenta de nuevo en unos minutos.';
+  }
+  return 'No se pudo conectar con el servidor. Verifica que la API esté corriendo en el puerto 3001.';
+}
 
 export class ApiError extends Error {
   constructor(
@@ -55,14 +81,11 @@ export async function apiFetch<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_URL}/api${path}`, {
+  const response = await fetch(`${getApiUrl()}/api${path}`, {
     ...options,
     headers,
   }).catch(() => {
-    throw new ApiError(
-      'No se pudo conectar con el servidor. Verifica que la API esté corriendo en el puerto 3001.',
-      0,
-    );
+    throw new ApiError(connectionErrorMessage(), 0);
   });
 
   if (!response.ok) {
@@ -75,8 +98,7 @@ export async function apiFetch<T>(
       /* ignore */
     }
     if (response.status === 0 || message === 'Error en la solicitud') {
-      message =
-        'No se pudo conectar con el servidor. Verifica que la API esté corriendo en el puerto 3001.';
+      message = connectionErrorMessage();
     }
     throw new ApiError(message, response.status);
   }
@@ -93,7 +115,7 @@ export async function apiDownload(path: string, filename: string): Promise<void>
   const headers = new Headers();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(`${API_URL}/api${path}`, { headers });
+  const response = await fetch(`${getApiUrl()}/api${path}`, { headers });
   if (!response.ok) {
     throw new ApiError('No se pudo descargar el archivo', response.status);
   }
@@ -112,7 +134,7 @@ export async function apiUploadForm<T>(path: string, formData: FormData): Promis
   const headers = new Headers();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(`${API_URL}/api${path}`, {
+  const response = await fetch(`${getApiUrl()}/api${path}`, {
     method: 'POST',
     headers,
     body: formData,

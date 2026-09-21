@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { siteConfig } from '@/lib/config';
 
 type PlatformPreviewProps = {
   variant?: 'dashboard' | 'calendario' | 'cobros';
@@ -401,9 +402,9 @@ function PreviewBody({ variant }: { variant: 'dashboard' | 'calendario' | 'cobro
 }
 
 const previewUrls = {
-  dashboard: 'https://web-production-8e240.up.railway.app/proveedor/dashboard',
-  calendario: 'https://web-production-8e240.up.railway.app/proveedor/calendario',
-  cobros: 'https://web-production-8e240.up.railway.app/proveedor/cobros',
+  dashboard: `${siteConfig.appUrl}/proveedor/dashboard`,
+  calendario: `${siteConfig.appUrl}/proveedor/calendario`,
+  cobros: `${siteConfig.appUrl}/proveedor/cobros`,
 };
 
 export function PlatformPreview({
