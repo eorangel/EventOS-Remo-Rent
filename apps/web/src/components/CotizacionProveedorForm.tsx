@@ -114,7 +114,16 @@ export function CotizacionProveedorForm({
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(
     String(initialData?.descuentoPorcentaje ?? 0),
   );
-  const [ivaPorcentaje, setIvaPorcentaje] = useState(String(initialData?.ivaPorcentaje ?? 16));
+  const [aplicaIva, setAplicaIva] = useState(() => {
+    if (!initialData) return true;
+    return initialData.ivaPorcentaje > 0 || initialData.ivaIncluido;
+  });
+  const [ivaPorcentaje, setIvaPorcentaje] = useState(() => {
+    if (initialData && initialData.ivaPorcentaje > 0) {
+      return String(initialData.ivaPorcentaje);
+    }
+    return '16';
+  });
   const [ivaIncluido, setIvaIncluido] = useState(initialData?.ivaIncluido ?? false);
   const [validoHasta, setValidoHasta] = useState(
     initialData?.validoHasta ? initialData.validoHasta.slice(0, 10) : '',
@@ -178,17 +187,17 @@ export function CotizacionProveedorForm({
     ).then(setProductos);
   }, [fechaEvento, cotizacionId]);
 
-  const totales = useMemo(
-    () =>
-      calcTotalesCotizacion(
-        lines.map((l) => ({ cantidad: l.cantidad, precioUnitario: l.precioUnitario })),
-        Number(costoEnvio) || 0,
-        Number(descuentoPorcentaje) || 0,
-        Number(ivaPorcentaje) || 0,
-        ivaIncluido,
-      ),
-    [lines, costoEnvio, descuentoPorcentaje, ivaPorcentaje, ivaIncluido],
-  );
+  const totales = useMemo(() => {
+    const ivaPct = aplicaIva ? Number(ivaPorcentaje) || 0 : 0;
+    const incluyeIva = aplicaIva && ivaIncluido;
+    return calcTotalesCotizacion(
+      lines.map((l) => ({ cantidad: l.cantidad, precioUnitario: l.precioUnitario })),
+      Number(costoEnvio) || 0,
+      Number(descuentoPorcentaje) || 0,
+      ivaPct,
+      incluyeIva,
+    );
+  }, [lines, costoEnvio, descuentoPorcentaje, ivaPorcentaje, ivaIncluido, aplicaIva]);
 
   const clienteSeleccionado = useMemo(
     () => clientes.find((c) => c.id === clienteProveedorId),
@@ -387,8 +396,8 @@ export function CotizacionProveedorForm({
         lugarEntrega: lugarEntrega || undefined,
         costoEnvio: Number(costoEnvio) || 0,
         descuentoPorcentaje: Number(descuentoPorcentaje) || 0,
-        ivaPorcentaje: Number(ivaPorcentaje) || 16,
-        ivaIncluido,
+        ivaPorcentaje: aplicaIva ? Number(ivaPorcentaje) || 16 : 0,
+        ivaIncluido: aplicaIva ? ivaIncluido : false,
         validoHasta: validoHasta ? new Date(validoHasta).toISOString() : undefined,
         notas: notas || undefined,
         items,
@@ -1083,25 +1092,37 @@ export function CotizacionProveedorForm({
                 className="w-full"
               />
             </label>
-            <label className="block">
-              <span className="mb-1 block text-slate-600">IVA (%)</span>
-              <input
-                type="number"
-                min={0}
-                step="0.5"
-                value={ivaPorcentaje}
-                onChange={(e) => setIvaPorcentaje(e.target.value)}
-                className="w-full"
-              />
-            </label>
-            <label className="flex items-center gap-2 sm:col-span-2 lg:col-span-1">
+            <label className="flex items-center gap-2 sm:col-span-2">
               <input
                 type="checkbox"
-                checked={ivaIncluido}
-                onChange={(e) => setIvaIncluido(e.target.checked)}
+                checked={aplicaIva}
+                onChange={(e) => setAplicaIva(e.target.checked)}
               />
-              <span>IVA incluido en precios</span>
+              <span>Aplicar IVA</span>
             </label>
+            {aplicaIva && (
+              <>
+                <label className="block">
+                  <span className="mb-1 block text-slate-600">IVA (%)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.5"
+                    value={ivaPorcentaje}
+                    onChange={(e) => setIvaPorcentaje(e.target.value)}
+                    className="w-full"
+                  />
+                </label>
+                <label className="flex items-center gap-2 sm:col-span-2 lg:col-span-1">
+                  <input
+                    type="checkbox"
+                    checked={ivaIncluido}
+                    onChange={(e) => setIvaIncluido(e.target.checked)}
+                  />
+                  <span>IVA incluido en precios</span>
+                </label>
+              </>
+            )}
           </div>
 
           <dl className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
@@ -1119,10 +1140,15 @@ export function CotizacionProveedorForm({
                 <dd>-{formatMoney(totales.descuentoMonto)}</dd>
               </div>
             )}
-            <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">IVA</dt>
-              <dd>{formatMoney(totales.montoIva)}</dd>
-            </div>
+            {aplicaIva && (totales.montoIva > 0 || ivaIncluido || Number(ivaPorcentaje) > 0) && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">
+                  IVA{Number(ivaPorcentaje) > 0 ? ` (${ivaPorcentaje}%)` : ''}
+                  {ivaIncluido ? ' incl.' : ''}
+                </dt>
+                <dd>{formatMoney(totales.montoIva)}</dd>
+              </div>
+            )}
             <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 text-base font-bold text-slate-900">
               <dt>Total</dt>
               <dd>{formatMoney(totales.total)}</dd>

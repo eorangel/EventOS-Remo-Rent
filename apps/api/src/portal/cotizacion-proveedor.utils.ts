@@ -55,6 +55,15 @@ export function calcTotalesCotizacionProveedor(
   const descuentoMonto = roundMoney(subtotal * (descuentoPorcentaje / 100));
   const base = roundMoney(subtotal - descuentoMonto);
 
+  if (ivaPorcentaje <= 0 && !ivaIncluido) {
+    return {
+      subtotal: subtotalProductos,
+      descuentoMonto,
+      montoIva: 0,
+      total: base,
+    };
+  }
+
   if (ivaIncluido) {
     const montoIva = roundMoney(base - base / (1 + ivaPorcentaje / 100));
     return {
@@ -297,7 +306,11 @@ export function buildCotizacionProveedorHtml(input: {
             ? `<div class="totals-row descuento"><span>Descuento (${input.descuentoPorcentaje}%)</span><span>-${formatMoneyMx(input.descuentoMonto, input.moneda)}</span></div>`
             : ''
         }
-        <div class="totals-row"><span>IVA (${input.ivaPorcentaje}%${input.ivaIncluido ? ' incl.' : ''})</span><span>${formatMoneyMx(input.montoIva, input.moneda)}</span></div>
+        ${
+          input.ivaIncluido || input.ivaPorcentaje > 0
+            ? `<div class="totals-row"><span>IVA (${input.ivaPorcentaje}%${input.ivaIncluido ? ' incl.' : ''})</span><span>${formatMoneyMx(input.montoIva, input.moneda)}</span></div>`
+            : ''
+        }
         <div class="totals-row total"><span>Total</span><span>${formatMoneyMx(input.total, input.moneda)}</span></div>
       </div>
     </div>
@@ -496,7 +509,7 @@ export function buildCotizacionProveedorHtml(input: {
 </head>
 <body>
   ${body}
-  <div class="footer">Documento generado desde el portal de proveedor — EventOS</div>
+  <div class="footer">Documento generado desde el portal de proveedor — REMO</div>
 </body>
 </html>`;
 }

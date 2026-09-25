@@ -43,7 +43,7 @@ function wrapHtml(titulo: string, body: string) {
 </head>
 <body>
 ${body}
-<div class="footer">Generado por EventOS — Remo&Rent</div>
+<div class="footer">Generado por REMO</div>
 </body>
 </html>`;
 }

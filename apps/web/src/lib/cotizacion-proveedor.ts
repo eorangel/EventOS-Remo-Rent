@@ -16,6 +16,10 @@ export function calcTotalesCotizacion(
   const descuentoMonto = roundMoney(subtotal * (descuentoPorcentaje / 100));
   const base = roundMoney(subtotal - descuentoMonto);
 
+  if (ivaPorcentaje <= 0 && !ivaIncluido) {
+    return { subtotal: subtotalProductos, descuentoMonto, montoIva: 0, total: base };
+  }
+
   if (ivaIncluido) {
     const montoIva = roundMoney(base - base / (1 + ivaPorcentaje / 100));
     return { subtotal: subtotalProductos, descuentoMonto, montoIva, total: base };

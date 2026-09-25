@@ -1913,7 +1913,10 @@ export class PortalService {
       where: { proveedorId },
     });
     const ivaIncluido = dto.ivaIncluido ?? perfil?.ivaIncluido ?? false;
-    const ivaPorcentaje = dto.ivaPorcentaje ?? 16;
+    const ivaPorcentaje =
+      dto.ivaPorcentaje !== undefined && dto.ivaPorcentaje !== null
+        ? dto.ivaPorcentaje
+        : 16;
     const costoEnvio = dto.costoEnvio ?? 0;
     const descuentoPorcentaje = dto.descuentoPorcentaje ?? 0;
 

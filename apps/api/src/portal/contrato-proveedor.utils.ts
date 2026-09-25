@@ -283,6 +283,7 @@ export function buildContratoProveedorHtml(input: {
     .firma-linea { border-top: 1px solid #334155; margin: 2.5rem 1rem 0.35rem; }
     .firma p { margin: 0.1rem 0; font-size: 0.85rem; }
     .firma-rol { color: #64748b; font-size: 0.75rem !important; }
+    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 7.5pt; color: #94a3b8; text-align: center; }
     @media print {
       body { max-width: none; }
     }
@@ -290,6 +291,7 @@ export function buildContratoProveedorHtml(input: {
 </head>
 <body>
 ${body}
+<div class="footer">Documento generado desde el portal de proveedor — REMO</div>
 </body>
 </html>`;
 }
@@ -391,7 +393,7 @@ export function wrapContratoEmailHtml(input: {
     ${saludo}
     ${intro}
     ${cuerpoContrato}
-    <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">Enviado por ${escapeHtml(input.proveedorNombre)} vía EventOS — Remo&amp;Rent</p>
+    <p style="margin:24px 0 0;font-size:12px;color:#94a3b8;">Enviado por ${escapeHtml(input.proveedorNombre)} vía REMO</p>
   </div>
 </body>
 </html>`;
