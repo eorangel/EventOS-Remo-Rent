@@ -1069,61 +1069,67 @@ export function CotizacionProveedorForm({
 
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Totales</h2>
-          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">
-            <label className="block">
-              <span className="mb-1 block text-slate-600">Costo de envío</span>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={costoEnvio}
-                onChange={(e) => setCostoEnvio(e.target.value)}
-                className="w-full"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-slate-600">Descuento (%)</span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step="0.5"
-                value={descuentoPorcentaje}
-                onChange={(e) => setDescuentoPorcentaje(e.target.value)}
-                className="w-full"
-              />
-            </label>
-            <label className="flex items-center gap-2 sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={aplicaIva}
-                onChange={(e) => setAplicaIva(e.target.checked)}
-              />
-              <span>Aplicar IVA</span>
-            </label>
-            {aplicaIva && (
-              <>
-                <label className="block">
-                  <span className="mb-1 block text-slate-600">IVA (%)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.5"
-                    value={ivaPorcentaje}
-                    onChange={(e) => setIvaPorcentaje(e.target.value)}
-                    className="w-full"
-                  />
-                </label>
-                <label className="flex items-center gap-2 sm:col-span-2 lg:col-span-1">
-                  <input
-                    type="checkbox"
-                    checked={ivaIncluido}
-                    onChange={(e) => setIvaIncluido(e.target.checked)}
-                  />
-                  <span>IVA incluido en precios</span>
-                </label>
-              </>
-            )}
+          <div className="space-y-3 text-sm">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <label className="block">
+                <span className="mb-1 block text-slate-600">Costo de envío</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={costoEnvio}
+                  onChange={(e) => setCostoEnvio(e.target.value)}
+                  className="w-full"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-slate-600">Descuento (%)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.5"
+                  value={descuentoPorcentaje}
+                  onChange={(e) => setDescuentoPorcentaje(e.target.value)}
+                  className="w-full"
+                />
+              </label>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={aplicaIva}
+                  onChange={(e) => setAplicaIva(e.target.checked)}
+                />
+                <span className="font-medium text-slate-700">Aplicar IVA</span>
+              </label>
+
+              {aplicaIva && (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                  <label className="block">
+                    <span className="mb-1 block text-slate-600">IVA (%)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={ivaPorcentaje}
+                      onChange={(e) => setIvaPorcentaje(e.target.value)}
+                      className="w-full"
+                    />
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 self-end rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={ivaIncluido}
+                      onChange={(e) => setIvaIncluido(e.target.checked)}
+                    />
+                    <span className="text-slate-700">IVA incluido en precios</span>
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
 
           <dl className="mt-4 space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
