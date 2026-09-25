@@ -193,16 +193,14 @@ export function buildCopilotoInicio(input: {
   const vacio = partes.length === 0 && prioridadesOrdenadas.length === 0;
 
   let mensaje: string;
-  if (vacio && completitudPerfil >= 80) {
-    mensaje = 'Hoy no tienes entregas, cobros ni seguimientos programados. ¡Buen día para planear!';
-  } else if (vacio) {
-    mensaje = 'Tu agenda de hoy está tranquila. Puedes avanzar en tu perfil o revisar cotizaciones.';
+  if (partes.length === 0) {
+    mensaje = 'No tienes nada para hoy.';
   } else if (partes.length === 1) {
     mensaje = `Hoy tienes ${partes[0]}.`;
   } else if (partes.length === 2) {
     mensaje = `Hoy tienes ${partes[0]} y ${partes[1]}.`;
   } else {
-    const ultimo = partes.pop();
+    const ultimo = partes.pop()!;
     mensaje = `Hoy tienes ${partes.join(', ')} y ${ultimo}.`;
   }
 
