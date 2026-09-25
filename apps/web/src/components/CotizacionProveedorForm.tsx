@@ -29,18 +29,6 @@ import type {
   ServicioProveedor,
 } from '@/lib/types';
 
-type ModoIva = 'sin' | 'agregar' | 'incluido';
-
-function resolveModoIvaFromData(data?: {
-  ivaPorcentaje: number;
-  ivaIncluido: boolean;
-}): ModoIva {
-  if (!data) return 'agregar';
-  if (data.ivaPorcentaje === 0 && !data.ivaIncluido) return 'sin';
-  if (data.ivaIncluido) return 'incluido';
-  return 'agregar';
-}
-
 type LineItem = {
   key: string;
   productoProveedorId?: string;
@@ -126,13 +114,17 @@ export function CotizacionProveedorForm({
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(
     String(initialData?.descuentoPorcentaje ?? 0),
   );
-  const [modoIva, setModoIva] = useState<ModoIva>(() => resolveModoIvaFromData(initialData));
+  const [aplicaIva, setAplicaIva] = useState(() => {
+    if (!initialData) return true;
+    return initialData.ivaPorcentaje > 0 || initialData.ivaIncluido;
+  });
   const [ivaPorcentaje, setIvaPorcentaje] = useState(() => {
     if (initialData && initialData.ivaPorcentaje > 0) {
       return String(initialData.ivaPorcentaje);
     }
     return '16';
   });
+  const [ivaIncluido, setIvaIncluido] = useState(initialData?.ivaIncluido ?? false);
   const [validoHasta, setValidoHasta] = useState(
     initialData?.validoHasta ? initialData.validoHasta.slice(0, 10) : '',
   );
@@ -169,7 +161,8 @@ export function CotizacionProveedorForm({
     apiFetch<PerfilEmpresaResponse>('/portal/empresa').then((e) => {
       setPerfil(e);
       if (mode === 'create' && e.perfil.ivaIncluido) {
-        setModoIva('incluido');
+        setAplicaIva(true);
+        setIvaIncluido(true);
       }
     });
   }, [mode]);
@@ -196,8 +189,8 @@ export function CotizacionProveedorForm({
   }, [fechaEvento, cotizacionId]);
 
   const totales = useMemo(() => {
-    const ivaPct = modoIva === 'sin' ? 0 : Number(ivaPorcentaje) || 0;
-    const incluyeIva = modoIva === 'incluido';
+    const ivaPct = aplicaIva ? Number(ivaPorcentaje) || 0 : 0;
+    const incluyeIva = aplicaIva && ivaIncluido;
     return calcTotalesCotizacion(
       lines.map((l) => ({ cantidad: l.cantidad, precioUnitario: l.precioUnitario })),
       Number(costoEnvio) || 0,
@@ -205,7 +198,7 @@ export function CotizacionProveedorForm({
       ivaPct,
       incluyeIva,
     );
-  }, [lines, costoEnvio, descuentoPorcentaje, ivaPorcentaje, modoIva]);
+  }, [lines, costoEnvio, descuentoPorcentaje, ivaPorcentaje, ivaIncluido, aplicaIva]);
 
   const clienteSeleccionado = useMemo(
     () => clientes.find((c) => c.id === clienteProveedorId),
@@ -404,8 +397,8 @@ export function CotizacionProveedorForm({
         lugarEntrega: lugarEntrega || undefined,
         costoEnvio: Number(costoEnvio) || 0,
         descuentoPorcentaje: Number(descuentoPorcentaje) || 0,
-        ivaPorcentaje: modoIva === 'sin' ? 0 : Number(ivaPorcentaje) || 16,
-        ivaIncluido: modoIva === 'incluido',
+        ivaPorcentaje: aplicaIva ? Number(ivaPorcentaje) || 16 : 0,
+        ivaIncluido: aplicaIva ? ivaIncluido : false,
         validoHasta: validoHasta ? new Date(validoHasta).toISOString() : undefined,
         notas: notas || undefined,
         items,
@@ -1100,75 +1093,36 @@ export function CotizacionProveedorForm({
                 className="w-full"
               />
             </label>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-            <p className="mb-1 text-sm font-semibold text-slate-800">Impuestos (IVA)</p>
-            <p className="mb-3 text-xs text-slate-500">
-              Elige cómo debe calcularse el IVA en esta cotización y en el PDF.
-            </p>
-            <div className="space-y-2">
-              {(
-                [
-                  {
-                    value: 'sin' as const,
-                    label: 'Sin IVA',
-                    hint: 'No se cobra ni se muestra impuesto. Ideal para cotizaciones exentas.',
-                  },
-                  {
-                    value: 'agregar' as const,
-                    label: 'IVA se suma al total',
-                    hint: 'El porcentaje se calcula sobre el subtotal y se agrega al final.',
-                  },
-                  {
-                    value: 'incluido' as const,
-                    label: 'Precios ya incluyen IVA',
-                    hint: 'Tus precios traen IVA; el desglose solo lo separa para el cliente.',
-                  },
-                ] as const
-              ).map((opcion) => (
-                <label
-                  key={opcion.value}
-                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
-                    modoIva === opcion.value
-                      ? 'border-teal-500 bg-teal-50/90 ring-1 ring-teal-200'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="modoIva"
-                    value={opcion.value}
-                    checked={modoIva === opcion.value}
-                    onChange={() => setModoIva(opcion.value)}
-                    className="mt-0.5 shrink-0"
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-slate-900">{opcion.label}</span>
-                    <span className="mt-0.5 block text-xs leading-snug text-slate-500">
-                      {opcion.hint}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-            {modoIva !== 'sin' && (
-              <label className="mt-3 block max-w-[140px]">
-                <span className="mb-1 block text-xs font-medium text-slate-600">
-                  Porcentaje de IVA
-                </span>
-                <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={aplicaIva}
+                onChange={(e) => setAplicaIva(e.target.checked)}
+              />
+              <span>Aplicar IVA</span>
+            </label>
+            {aplicaIva && (
+              <>
+                <label className="block">
+                  <span className="mb-1 block text-slate-600">IVA (%)</span>
                   <input
                     type="number"
                     min={0}
                     step="0.5"
                     value={ivaPorcentaje}
                     onChange={(e) => setIvaPorcentaje(e.target.value)}
-                    className="w-full text-sm"
+                    className="w-full"
                   />
-                  <span className="text-sm text-slate-500">%</span>
-                </div>
-              </label>
+                </label>
+                <label className="flex items-center gap-2 sm:col-span-2 lg:col-span-1">
+                  <input
+                    type="checkbox"
+                    checked={ivaIncluido}
+                    onChange={(e) => setIvaIncluido(e.target.checked)}
+                  />
+                  <span>IVA incluido en precios</span>
+                </label>
+              </>
             )}
           </div>
 
@@ -1187,17 +1141,11 @@ export function CotizacionProveedorForm({
                 <dd>-{formatMoney(totales.descuentoMonto)}</dd>
               </div>
             )}
-            {modoIva === 'sin' ? (
-              <div className="flex justify-between gap-4 text-slate-500">
-                <dt>Impuesto</dt>
-                <dd className="text-xs">Sin IVA</dd>
-              </div>
-            ) : (
+            {aplicaIva && (
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">
-                  {modoIva === 'incluido'
-                    ? `IVA incluido (${ivaPorcentaje || 0}%)`
-                    : `IVA (${ivaPorcentaje || 0}%)`}
+                  IVA{Number(ivaPorcentaje) > 0 ? ` (${ivaPorcentaje}%)` : ''}
+                  {ivaIncluido ? ' incl.' : ''}
                 </dt>
                 <dd>{formatMoney(totales.montoIva)}</dd>
               </div>
